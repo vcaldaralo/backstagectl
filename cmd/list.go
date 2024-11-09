@@ -18,12 +18,12 @@ type Entity struct {
 	Kind string `json:"kind"`
 }
 
-type EntityResponse struct {
+type EntitiesResponse struct {
 	Items []Entity `json:"items"`
 }
 
-var entitiesCmd = &cobra.Command{
-	Use:   "entities",
+var listCmd = &cobra.Command{
+	Use:   "list",
 	Short: "List all entities from Backstage",
 	Run: func(cmd *cobra.Command, args []string) {
 		client := &http.Client{}
@@ -52,23 +52,23 @@ var entitiesCmd = &cobra.Command{
 				fmt.Printf("Error reading response: %v\n", err)
 				return
 			}
-			var entities EntityResponse
+			var entities EntitiesResponse
 			if err := json.Unmarshal(body, &entities); err != nil {
 				fmt.Printf("Error parsing response: %v\n", err)
 				return
 			}
 
 			for _, entity := range entities.Items {
-				if entity.Kind == "Entity" {
-					fmt.Printf("Name: %s\nDescription: %s\n\n",
-						entity.Metadata.Name,
-						entity.Metadata.Description)
-				}
+				// if entity.Kind == "Component" {
+				fmt.Printf("Name: %s\nDescription: %s\n\n",
+					entity.Metadata.Name,
+					entity.Metadata.Description)
+				// }
 			}
 		}
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(entitiesCmd)
+	rootCmd.AddCommand(listCmd)
 }

@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"encoding/json"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"log"
@@ -26,15 +26,43 @@ var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all entities from Backstage",
 	Run: func(cmd *cobra.Command, args []string) {
-		client := &http.Client{}
+		var client *http.Client
 
-		req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/catalog/entities", baseURL), nil)
+		// Create TLS client if cert/key provided
+		if tlsCertPath != "" && tlsKeyPath != "" {
+			cert, err := tls.LoadX509KeyPair(tlsCertPath, tlsKeyPath)
+			if err != nil {
+				fmt.Printf("Error loading TLS certificate: %v\n", err)
+				return
+			}
+
+			tlsConfig := &tls.Config{
+				Certificates: []tls.Certificate{cert},
+			}
+
+			client = &http.Client{
+				Transport: &http.Transport{
+					TLSClientConfig: tlsConfig,
+				},
+			}
+		} else {
+			client = &http.Client{}
+		}
+
+		req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/catalog/entities?filter=kind=component", baseURL), nil)
 		if err != nil {
 			fmt.Printf("Error creating request: %v\n", err)
 			return
 		}
 
-		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
+		// Only add token auth if cert/key not provided
+		if tlsCertPath == "" && tlsKeyPath == "" {
+			if token == "" {
+				fmt.Println("Error: either token or TLS certificate/key pair must be provided")
+				return
+			}
+			req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
+		}
 
 		resp, err := client.Do(req)
 		if err != nil {
@@ -52,19 +80,21 @@ var listCmd = &cobra.Command{
 				fmt.Printf("Error reading response: %v\n", err)
 				return
 			}
-			var entities EntitiesResponse
-			if err := json.Unmarshal(body, &entities); err != nil {
-				fmt.Printf("Error parsing response: %v\n", err)
-				return
-			}
 
-			for _, entity := range entities.Items {
-				// if entity.Kind == "Component" {
-				fmt.Printf("Name: %s\nDescription: %s\n\n",
-					entity.Metadata.Name,
-					entity.Metadata.Description)
-				// }
-			}
+			fmt.Printf("%s", body)
+			// var entities EntitiesResponse
+			// if err := json.Unmarshal(body, &entities); err != nil {
+			// 	fmt.Printf("Error parsing response: %v\n", err)
+			// 	return
+			// }
+
+			// for _, entity := range entities.Items {
+			// 	// if entity.Kind == "Component" {
+			// 	fmt.Printf("Name: %s\nDescription: %s\n\n",
+			// 		entity.Metadata.Name,
+			// 		entity.Metadata.Description)
+			// 	// }
+			// }
 		}
 	},
 }

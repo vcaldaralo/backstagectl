@@ -8,8 +8,10 @@ import (
 )
 
 var (
-	baseURL string
-	token   string
+	baseURL     string
+	token       string
+	tlsCertPath string
+	tlsKeyPath  string
 )
 
 var rootCmd = &cobra.Command{
@@ -29,8 +31,9 @@ func Execute() {
 
 func init() {
 	rootCmd.PersistentFlags().StringVar(&baseURL, "url", "", "Backstage API base URL (required)")
-	rootCmd.PersistentFlags().StringVar(&token, "token", "", "Authentication token (required)")
+	rootCmd.PersistentFlags().StringVar(&token, "token", "", "Authentication token")
+	rootCmd.PersistentFlags().StringVar(&tlsCertPath, "tls-cert", "", "Path to Teleport TLS certificate file")
+	rootCmd.PersistentFlags().StringVar(&tlsKeyPath, "tls-key", "", "Path to Teleport TLS key file")
 
 	rootCmd.MarkPersistentFlagRequired("url")
-	// rootCmd.MarkPersistentFlagRequired("token")
 }

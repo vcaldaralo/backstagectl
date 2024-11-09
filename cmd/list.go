@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -18,9 +19,11 @@ type Entity struct {
 	Kind string `json:"kind"`
 }
 
-type EntitiesResponse struct {
-	Items []Entity `json:"items"`
-}
+// type EntitiesResponse struct {
+// 	Items []Entity `json:"items"`
+// }
+
+type Entities []Entity
 
 var listCmd = &cobra.Command{
 	Use:   "list",
@@ -81,20 +84,21 @@ var listCmd = &cobra.Command{
 				return
 			}
 
-			fmt.Printf("%s", body)
-			// var entities EntitiesResponse
-			// if err := json.Unmarshal(body, &entities); err != nil {
-			// 	fmt.Printf("Error parsing response: %v\n", err)
-			// 	return
-			// }
+			var entities Entities
+			if err := json.Unmarshal(body, &entities); err != nil {
+				fmt.Printf("Error parsing response: %v\n", err)
+				return
+			}
 
-			// for _, entity := range entities.Items {
-			// 	// if entity.Kind == "Component" {
-			// 	fmt.Printf("Name: %s\nDescription: %s\n\n",
-			// 		entity.Metadata.Name,
-			// 		entity.Metadata.Description)
-			// 	// }
-			// }
+			for _, entity := range entities {
+				// if entity.Kind == "Component" {
+				fmt.Printf("Name: %s\nKind: %s\nDescription: %s\n\n",
+					entity.Metadata.Name,
+					entity.Kind,
+					entity.Metadata.Description)
+				// }
+			}
+			// fmt.Printf("%s", body)
 		}
 	},
 }

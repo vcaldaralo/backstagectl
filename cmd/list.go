@@ -17,6 +17,7 @@ var listCmd = &cobra.Command{
 		initAuth() // Initialize authentication
 
 		kind, _ := cmd.Flags().GetString("kind")
+		annotationKey, _ := cmd.Flags().GetString("annotation")
 		filter := ""
 
 		if kind != "" {
@@ -24,11 +25,19 @@ var listCmd = &cobra.Command{
 				kind = kind[:len(kind)-1] // Remove the last character
 			}
 			filter = fmt.Sprintf("?filter=kind=%s", kind)
-		} else {
-			filter = ""
 		}
 
-		req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/catalog/entities%s", baseUrl, filter), nil)
+		if annotationKey != "" {
+			if filter != "" {
+				filter += fmt.Sprintf("&filter=metadata.annotations.%s", annotationKey)
+			} else {
+				filter = fmt.Sprintf("?filter=metadata.annotations.%s", annotationKey)
+			}
+		}
+
+		url := fmt.Sprintf("%s/api/catalog/entities%s", baseUrl, filter)
+
+		req, err := http.NewRequest("GET", url, nil)
 		if err != nil {
 			fmt.Printf("Error creating request: %v\n", err)
 			return
@@ -71,5 +80,6 @@ var listCmd = &cobra.Command{
 
 func init() {
 	listCmd.Flags().StringP("kind", "k", "", "Filter entities by kind [Resource|Component|System|Domain|User|Group|Location]")
+	listCmd.Flags().StringP("annotation", "a", "", "Filter entities by annotation key")
 	rootCmd.AddCommand(listCmd)
 }

@@ -115,12 +115,12 @@ var getEntityCmd = &cobra.Command{
 }
 
 func init() {
-	getEntityCmd.Flags().StringP("ref", "r", "", "The reference of the entity {kind}:[default/]{name} (ie. component:default/zookeeper)") // Add kind flag
-	getEntityCmd.Flags().StringP("kind", "k", "", "The kind of the entity [Resource|Component|System|Domain|User|Group|Location]")        // Add kind flag
-	getEntityCmd.Flags().StringP("name", "n", "", "The name of the entity")                                                               // Add name flag
-	getEntityCmd.Flags().StringP("namespace", "N", "default", "The namespace of the entity")                                              // Add namespace flag
-	getEntityCmd.Flags().BoolP("ancestry", "a", false, "Wheter or not tho retrieve the ancestry of the entity")                           // Add name flag
-	getEntityCmd.Flags().BoolP("relations", "l", false, "Print all relations")                                                            // Add filter flag
+	getEntityCmd.Flags().StringP("ref", "r", "", "The reference of the entity {kind}:[default/]{name} (ie. component:default/zookeeper)")   // Add kind flag
+	getEntityCmd.Flags().StringP("kind", "k", "component", "The kind of the entity [Resource|Component|System|Domain|User|Group|Location]") // Add kind flag
+	getEntityCmd.Flags().StringP("name", "n", "", "The name of the entity")                                                                 // Add name flag
+	getEntityCmd.Flags().StringP("namespace", "N", "default", "The namespace of the entity")                                                // Add namespace flag
+	getEntityCmd.Flags().BoolP("ancestry", "a", false, "Wheter or not tho retrieve the ancestry of the entity")                             // Add name flag
+	getEntityCmd.Flags().BoolP("relations", "l", false, "Print all relations")                                                              // Add filter flag
 	// Mark name as required
 	rootCmd.AddCommand(getEntityCmd) // Add the new command to the list command
 }

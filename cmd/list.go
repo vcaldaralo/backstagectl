@@ -20,6 +20,9 @@ var listCmd = &cobra.Command{
 		filter := ""
 
 		if kind != "" {
+			if len(kind) > 0 && kind[len(kind)-1] == 's' {
+				kind = kind[:len(kind)-1] // Remove the last character
+			}
 			filter = fmt.Sprintf("?filter=kind=%s", kind)
 		} else {
 			filter = ""
@@ -67,6 +70,6 @@ var listCmd = &cobra.Command{
 }
 
 func init() {
-	listCmd.Flags().StringP("kind", "k", "", "Filter entities by kind (Resource, Component, System, Domain, User, Group, Location)")
+	listCmd.Flags().StringP("kind", "k", "", "Filter entities by kind [Resource|Component|System|Domain|User|Group|Location]")
 	rootCmd.AddCommand(listCmd)
 }

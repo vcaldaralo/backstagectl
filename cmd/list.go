@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,61 +10,28 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type Entity struct {
-	Metadata struct {
-		Name        string `json:"name"`
-		Description string `json:"description"`
-	} `json:"metadata"`
-	Kind string `json:"kind"`
-}
-
-// type EntitiesResponse struct {
-// 	Items []Entity `json:"items"`
-// }
-
-type Entities []Entity
-
 var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all entities from Backstage",
 	Run: func(cmd *cobra.Command, args []string) {
-		var client *http.Client
+		initAuth() // Initialize authentication
 
-		// Create TLS client if cert/key provided
-		if tlsCertPath != "" && tlsKeyPath != "" {
-			cert, err := tls.LoadX509KeyPair(tlsCertPath, tlsKeyPath)
-			if err != nil {
-				fmt.Printf("Error loading TLS certificate: %v\n", err)
-				return
-			}
+		kind, _ := cmd.Flags().GetString("kind")
+		filter := ""
 
-			tlsConfig := &tls.Config{
-				Certificates: []tls.Certificate{cert},
-			}
-
-			client = &http.Client{
-				Transport: &http.Transport{
-					TLSClientConfig: tlsConfig,
-				},
-			}
+		if kind != "" {
+			filter = fmt.Sprintf("?filter=kind=%s", kind)
 		} else {
-			client = &http.Client{}
+			filter = ""
 		}
 
-		req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/catalog/entities?filter=kind=component", baseURL), nil)
+		req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/catalog/entities%s", baseUrl, filter), nil)
 		if err != nil {
 			fmt.Printf("Error creating request: %v\n", err)
 			return
 		}
 
-		// Only add token auth if cert/key not provided
-		if tlsCertPath == "" && tlsKeyPath == "" {
-			if token == "" {
-				fmt.Println("Error: either token or TLS certificate/key pair must be provided")
-				return
-			}
-			req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
-		}
+		addAuthHeader(req) // Add authentication header
 
 		resp, err := client.Do(req)
 		if err != nil {
@@ -91,18 +57,16 @@ var listCmd = &cobra.Command{
 			}
 
 			for _, entity := range entities {
-				// if entity.Kind == "Component" {
-				fmt.Printf("Name: %s\nKind: %s\nDescription: %s\n\n",
-					entity.Metadata.Name,
+				fmt.Printf("kind: %s\tname: %s\n",
 					entity.Kind,
-					entity.Metadata.Description)
-				// }
+					entity.Metadata.Name,
+				)
 			}
-			// fmt.Printf("%s", body)
 		}
 	},
 }
 
 func init() {
+	listCmd.Flags().StringP("kind", "k", "", "Filter entities by kind (Resource, Component, System, Domain, User, Group, Location)")
 	rootCmd.AddCommand(listCmd)
 }

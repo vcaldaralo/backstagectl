@@ -7,12 +7,23 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	baseURL     string
-	token       string
-	tlsCertPath string
-	tlsKeyPath  string
-)
+type Entity struct {
+	ApiVersion string `json:"apiVersion"`
+	Kind       string `json:"kind"`
+	Metadata   struct {
+		Name        string                 `json:"name"`
+		Namespace   string                 `json:"namespace"`
+		Description string                 `json:"description"`
+		Annotations map[string]interface{} `json:"annotations"`
+	} `json:"metadata"`
+	Spec map[string]interface{} `json:"spec"`
+}
+
+// type EntitiesResponse struct {
+// 	Items []Entity `json:"items"`
+// }
+
+type Entities []Entity
 
 var rootCmd = &cobra.Command{
 	Use:   "backstage-cli",
@@ -30,10 +41,4 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVar(&baseURL, "url", "", "Backstage API base URL (required)")
-	rootCmd.PersistentFlags().StringVar(&token, "token", "", "Authentication token")
-	rootCmd.PersistentFlags().StringVar(&tlsCertPath, "tls-cert", "", "Path to Teleport TLS certificate file")
-	rootCmd.PersistentFlags().StringVar(&tlsKeyPath, "tls-key", "", "Path to Teleport TLS key file")
-
-	rootCmd.MarkPersistentFlagRequired("url")
 }

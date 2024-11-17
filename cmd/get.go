@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -19,9 +20,13 @@ func displayEntities(entities Entities) {
 
 	// Print each key-value pair
 	if len(entities) != 1 {
-		fmt.Fprintln(w, "KIND\tNAME")
+		fmt.Fprintln(w, "KIND\tNAME\tURL")
 		for _, entity := range entities {
-			fmt.Fprintf(w, "%s\t%s\n", entity.Kind, entity.Metadata.Name) // Use Fprintf to write to the tabwriter
+			fmt.Fprintf(w, "%s\t%s\t%s\n",
+				entity.Kind,
+				entity.Metadata.Name,
+				entity.Metadata.Annotations["backstage.io/view-url"],
+			) // Use Fprintf to write to the tabwriter
 		}
 		// Print the whole yaml for the single entity
 	} else {
@@ -45,7 +50,7 @@ var getCmd = &cobra.Command{
 		var kind, name string
 
 		if len(args) > 0 {
-			kind = args[0] // Assign first argument to kind
+			kinds := args[0] // Assign first argument to kind
 			allowedKinds := map[string]bool{
 				"resources": true,
 				"component": true,
@@ -55,9 +60,12 @@ var getCmd = &cobra.Command{
 				"group":     true,
 				"location":  true,
 			} // Define allowed kinds
-			if !allowedKinds[kind] {
-				log.Fatalf("error: backstage doesn't have a resource kind '%s'\nAllowed kinds are: %v", kind, allowedKinds)
+			for _, k := range strings.Split(kinds, ",") {
+				if !allowedKinds[k] {
+					log.Fatalf("error: backstage doesn't have a resource kind '%s'\nAllowed kinds are: %v", kind, allowedKinds)
+				}
 			}
+			kind = strings.Split(kinds, ",")[0]
 		}
 		if len(args) > 1 {
 			name = args[1] // Assign second argument to name

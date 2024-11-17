@@ -52,7 +52,7 @@ var getCmd = &cobra.Command{
 		if len(args) > 0 {
 			kinds := args[0] // Assign first argument to kind
 			allowedKinds := map[string]bool{
-				"resources": true,
+				"resource":  true,
 				"component": true,
 				"system":    true,
 				"domain":    true,
@@ -61,12 +61,16 @@ var getCmd = &cobra.Command{
 				"location":  true,
 			} // Define allowed kinds
 			for _, k := range strings.Split(kinds, ",") {
+				if len(k) > 0 && k[len(k)-1] == 's' {
+					k = k[:len(k)-1] // Remove the last character
+				}
 				if !allowedKinds[k] {
 					log.Fatalf("error: backstage doesn't have a resource kind '%s'\nAllowed kinds are: %v", kind, allowedKinds)
 				}
 			}
 			kind = strings.Split(kinds, ",")[0]
 		}
+
 		if len(args) > 1 {
 			name = args[1] // Assign second argument to name
 		}

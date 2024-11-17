@@ -1,126 +1,152 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
-	"strings"
+	"os"
+	"text/tabwriter"
 
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
+	"gopkg.in/yaml.v2"
 )
 
-var getEntityCmd = &cobra.Command{
+func displayEntities(entities Entities) {
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
+	defer w.Flush()
+
+	// Print each key-value pair
+	if len(entities) != 1 {
+		fmt.Fprintln(w, "KIND\tNAME")
+		for _, entity := range entities {
+			fmt.Fprintf(w, "%s\t%s\n", entity.Kind, entity.Metadata.Name) // Use Fprintf to write to the tabwriter
+		}
+		// Print the whole yaml for the single entity
+	} else {
+		// Print the entire YAML without filtering
+		marshaledYAML, err := yaml.Marshal(entities[0])
+		if err != nil {
+			fmt.Println("Error marshalling YAML:", err)
+			return
+		}
+		// Print the resulting YAML
+		fmt.Println(string(marshaledYAML))
+	}
+}
+
+var getCmd = &cobra.Command{
 	Use:   "get",
-	Short: "Get a specific entity and print its YAML",
-	Args:  cobra.NoArgs, // No positional arguments required
+	Short: "Display one or many Backstage entities",
 	Run: func(cmd *cobra.Command, args []string) {
 		initAuth() // Initialize authentication
 
-		ref, _ := cmd.Flags().GetString("ref")                 // Get the ref flag
-		kind, _ := cmd.Flags().GetString("kind")               // Get the kind flag
-		name, _ := cmd.Flags().GetString("name")               // Get the name flag
-		namespace, _ := cmd.Flags().GetString("namespace")     // Get the namespace flag
-		ancestry, _ := cmd.Flags().GetBool("ancestry")         // Get the filter flag
-		filterRelations, _ := cmd.Flags().GetBool("relations") // Get the filter flag
+		var kind, name string
 
-		if len(kind) > 0 && kind[len(kind)-1] == 's' {
-			kind = kind[:len(kind)-1] // Remove the last character
-		}
-
-		// Split ref into kind, namespace, and name
-		if ref != "" {
-			tokens := strings.Split(ref, ":") // Split by ':'
-			if len(tokens) == 2 {
-				kind = tokens[0]                   // First token is kind
-				t := strings.Split(tokens[1], "/") // Split by '/'
-				if len(t) == 2 {
-					namespace = t[0]
-					name = t[1]
-				} else if len(t) == 1 {
-					name = t[0] // Third token is name
-				}
+		if len(args) > 0 {
+			kind = args[0] // Assign first argument to kind
+			allowedKinds := map[string]bool{
+				"resources": true,
+				"component": true,
+				"system":    true,
+				"domain":    true,
+				"user":      true,
+				"group":     true,
+				"location":  true,
+			} // Define allowed kinds
+			if !allowedKinds[kind] {
+				log.Fatalf("error: backstage doesn't have a resource kind '%s'\nAllowed kinds are: %v", kind, allowedKinds)
 			}
 		}
-
-		anc := map[bool]string{false: "", true: "/ancestry"}[ancestry]
-
-		url := fmt.Sprintf("%s/api/catalog/entities/by-name/%s/%s/%s%s", baseUrl, kind, namespace, name, anc) // Use ref for URL
-
-		req, err := http.NewRequest("GET", url, nil)
-		if err != nil {
-			fmt.Printf("Error creating request: %v\n", err)
-			return
+		if len(args) > 1 {
+			name = args[1] // Assign second argument to name
 		}
 
-		addAuthHeader(req) // Add authentication header
+		annotationKey, _ := cmd.Flags().GetString("annotation")
 
-		resp, err := client.Do(req)
-		if err != nil {
-			fmt.Printf("Error making request: %v\n", err)
-			return
+		filter := ""
+		if kind != "" {
+			if len(kind) > 0 && kind[len(kind)-1] == 's' {
+				kind = kind[:len(kind)-1] // Remove the last character
+			}
+			filter = fmt.Sprintf("?filter=kind=%s", kind)
 		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			body, _ := io.ReadAll(resp.Body)
-			log.Fatalf("Status code: %d, %s\n%s", resp.StatusCode, url, body)
-		} else {
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				fmt.Printf("Error reading response: %v\n", err)
-				return
-			}
-
-			var data map[string]interface{}
-			err = yaml.Unmarshal(body, &data)
-			if err != nil {
-				fmt.Println("Error unmarshalling YAML:", err)
-				return
-			}
-
-			if !filterRelations {
-				// Keys to filter (exclude these keys)
-				excludeKeys := map[string]bool{"relations": true}
-
-				// Filtered map
-				filtered := map[string]interface{}{}
-				for key, value := range data {
-					if !excludeKeys[key] {
-						filtered[key] = value
-					}
-				}
-
-				// Marshal the map back to YAML
-				marshaledYAML, err := yaml.Marshal(filtered)
-				if err != nil {
-					fmt.Println("Error marshalling YAML:", err)
-					return
-				}
-				// Print the resulting YAML
-				fmt.Println(string(marshaledYAML))
+		if name != "" {
+			if filter != "" {
+				filter += fmt.Sprintf(",metadata.name=%s", name)
 			} else {
-				// Print the entire YAML without filtering
-				marshaledYAML, err := yaml.Marshal(data)
-				if err != nil {
-					fmt.Println("Error marshalling YAML:", err)
-					return
-				}
-				// Print the resulting YAML
-				fmt.Println(string(marshaledYAML))
+				filter = fmt.Sprintf("?filter=metadata.name=%s", name)
 			}
 		}
+		if annotationKey != "" {
+			if filter != "" {
+				filter += fmt.Sprintf(",metadata.annotations.%s", annotationKey)
+			} else {
+				filter = fmt.Sprintf("?filter=metadata.annotations.%s", annotationKey)
+			}
+		}
+
+		var entities []Entity
+		var nextCursor string
+		for {
+			url := fmt.Sprintf("%s/api/catalog/entities/by-query%s", baseUrl, filter)
+			if nextCursor != "" {
+				if filter != "" {
+					url += fmt.Sprintf("&cursor=%s", nextCursor) // Append nextCursor to the URL
+				} else {
+					url += fmt.Sprintf("?cursor=%s", nextCursor)
+				}
+			}
+
+			req, err := http.NewRequest("GET", url, nil)
+			if err != nil {
+				fmt.Printf("Error creating request: %v\n", err)
+				return
+			}
+
+			addAuthHeader(req) // Add authentication header
+
+			resp, err := client.Do(req)
+			if err != nil {
+				fmt.Printf("Error making request: %v\n", err)
+				return
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				body, _ := io.ReadAll(resp.Body)
+				log.Fatalf("%s", body)
+			} else {
+				body, err := io.ReadAll(resp.Body)
+				if err != nil {
+					fmt.Printf("Error reading response: %v\n", err)
+					return
+				}
+
+				var entitiesResponse EntitiesResponse
+				err = json.Unmarshal(body, &entitiesResponse)
+				if err != nil {
+					fmt.Println("Error unmarshalling JSON:", err)
+					return
+				}
+
+				// Process the items
+				entities = append(entities, entitiesResponse.Items...)
+
+				// Check for nextCursor to continue fetching
+				nextCursor = entitiesResponse.PageInfo.NextCursor
+				if nextCursor == "" {
+					break // Exit the loop if there are no more cursors
+				}
+			}
+		}
+		displayEntities(entities)
 	},
 }
 
 func init() {
-	getEntityCmd.Flags().StringP("ref", "r", "", "The reference of the entity {kind}:[default/]{name} (ie. component:default/zookeeper)")   // Add kind flag
-	getEntityCmd.Flags().StringP("kind", "k", "component", "The kind of the entity [Resource|Component|System|Domain|User|Group|Location]") // Add kind flag
-	getEntityCmd.Flags().StringP("name", "n", "", "The name of the entity")                                                                 // Add name flag
-	getEntityCmd.Flags().StringP("namespace", "N", "default", "The namespace of the entity")                                                // Add namespace flag
-	getEntityCmd.Flags().BoolP("ancestry", "a", false, "Wheter or not tho retrieve the ancestry of the entity")                             // Add name flag
-	getEntityCmd.Flags().BoolP("relations", "l", false, "Print all relations")                                                              // Add filter flag
-	// Mark name as required
-	rootCmd.AddCommand(getEntityCmd) // Add the new command to the list command
+	// getCmd.Flags().StringP("kind", "k", "", "Filter entities by kind [resource|component|system|domain|user|group|location]")
+	getCmd.Flags().StringP("annotation", "a", "", "Filter entities by annotation key")
+	rootCmd.AddCommand(getCmd)
 }

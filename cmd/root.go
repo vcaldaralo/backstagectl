@@ -7,6 +7,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
+type EntitiesResponse struct {
+	Items    []Entity `json:"items"`
+	PageInfo struct {
+		NextCursor string `json:"nextCursor"`
+	} `json:"pageInfo"`
+	TotalItems int `json:"totalItems"`
+}
+
 type Entity struct {
 	ApiVersion string `json:"apiVersion"`
 	Kind       string `json:"kind"`
@@ -15,13 +23,12 @@ type Entity struct {
 		Namespace   string                 `json:"namespace"`
 		Description string                 `json:"description"`
 		Annotations map[string]interface{} `json:"annotations"`
+		Links       []interface{}          `json:"links"`
+		Tags        []string               `json:"tags"`
 	} `json:"metadata"`
-	Spec map[string]interface{} `json:"spec"`
+	Relations []interface{}          `json:"relations"`
+	Spec      map[string]interface{} `json:"spec"`
 }
-
-// type EntitiesResponse struct {
-// 	Items []Entity `json:"items"`
-// }
 
 type Entities []Entity
 

@@ -50,7 +50,7 @@ var getCmd = &cobra.Command{
 			}
 		}
 
-		if len(args) > 1 && name != "" {
+		if len(args) > 1 && name == "" {
 			name = args[1] // Assign second argument to name
 		}
 

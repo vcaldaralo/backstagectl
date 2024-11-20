@@ -10,7 +10,7 @@ import (
 )
 
 var getCmd = &cobra.Command{
-	Use:   "get",
+	Use:   "get [kind|ref] [name]",
 	Short: "Display one or many Backstage entities",
 	Run: func(cmd *cobra.Command, args []string) {
 		initAuth() // Initialize authentication

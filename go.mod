@@ -1,4 +1,4 @@
-module github.com/vcaldaralo/backstage-cli
+module github.com/vcaldaralo/backstagectl
 
 go 1.22.5
 

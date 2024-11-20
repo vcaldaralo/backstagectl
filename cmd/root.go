@@ -22,6 +22,11 @@ type EntitiesResponse struct {
 	TotalItems int `json:"totalItems"`
 }
 
+type Relation struct {
+	Type      string `json:"type"`
+	TargetRef string `json:"targetRef"`
+}
+
 type Entity struct {
 	ApiVersion string `json:"apiVersion"`
 	Kind       string `json:"kind"`
@@ -33,16 +38,16 @@ type Entity struct {
 		Links       []interface{}          `json:"links"`
 		Tags        []string               `json:"tags"`
 	} `json:"metadata"`
-	Relations []interface{}          `json:"relations"`
+	Relations []Relation             `json:"relations"`
 	Spec      map[string]interface{} `json:"spec"`
 }
 
 type Entities []Entity
 
 var rootCmd = &cobra.Command{
-	Use:   "backstage-cli",
+	Use:   "backstagectl",
 	Short: "A CLI tool to interact with Backstage API",
-	Long: `backstage-cli is a command line interface tool that allows you to 
+	Long: `backstagectl is a command line interface tool that allows you to 
 interact with Backstage API in read-only mode. You can fetch information 
 about entities, APIs, and other entities.`,
 }
@@ -60,6 +65,7 @@ func fetchEntities(queryParameters string) []Entity {
 	var nextCursor string
 	for {
 		url := fmt.Sprintf("%s/api/catalog/entities/by-query%s", baseUrl, queryParameters)
+
 		if nextCursor != "" {
 			url += fmt.Sprintf("&cursor=%s", nextCursor) // Append nextCursor to the URL
 		}
@@ -116,15 +122,12 @@ func displayEntities(entities Entities) {
 
 	// Print each key-value pair
 	if len(entities) != 1 {
-		// fmt.Fprintln(w, "KIND\tNAME\tOWNER\tURL")
-		fmt.Fprintln(w, "KIND\tNAME")
+		fmt.Fprintln(w, "KIND\tNAME\tURL")
 		for _, entity := range entities {
-			// fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
-			fmt.Fprintf(w, "%s\t%s\n",
+			fmt.Fprintf(w, "%s\t%s\t%s\n",
 				entity.Kind,
 				entity.Metadata.Name,
-				// entity.Spec["owner"],
-				// entity.Metadata.Annotations["backstage.io/view-url"],
+				entity.Metadata.Annotations["backstage.io/view-url"],
 			) // Use Fprintf to write to the tabwriter
 		}
 		// Print the whole yaml for the single entity

@@ -1,6 +1,6 @@
 package main
 
-import "github.com/vcaldaralo/backstage-cli/cmd"
+import "github.com/vcaldaralo/backstagectl/cmd"
 
 func main() {
 	cmd.Execute()

@@ -2,11 +2,9 @@ package cmd
 
 import (
 	"fmt"
-	"log"
-	"regexp"
-	"strings"
 
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 )
 
 var getCmd = &cobra.Command{
@@ -16,67 +14,48 @@ var getCmd = &cobra.Command{
 		initAuth() // Initialize authentication
 		annotation, _ := cmd.Flags().GetString("annotation")
 
-		var kind, name string
-		filter := ""
+		_, filter := parseArgs(args)
 
-		if len(args) > 0 {
-			arg := args[0] // Assign first argument to kind
-
-			pattern := `^[^:]+:[^/]+/[^/]+$`
-			matched, _ := regexp.MatchString(pattern, arg)
-			if matched {
-				ref := strings.Split(arg, ":")
-				kind = ref[0]
-				name = strings.Split(arg, "/")[1]
-			} else {
-				kind = arg
-			}
-
-			allowedKinds := map[string]bool{
-				"resource":  true,
-				"component": true,
-				"system":    true,
-				"domain":    true,
-				"user":      true,
-				"group":     true,
-				"location":  true,
-			} // Define allowed kinds
-
-			if len(kind) > 0 && kind[len(kind)-1] == 's' {
-				kind = kind[:len(kind)-1] // Remove the last character
-			}
-			if !allowedKinds[kind] {
-				log.Fatalf("error: backstage doesn't have a resource kind '%s'\nAllowed kinds are: %v", kind, allowedKinds)
-			}
-		}
-
-		if len(args) > 1 && name == "" {
-			name = args[1] // Assign second argument to name
-		}
-
-		if kind != "" {
-			if len(kind) > 0 && kind[len(kind)-1] == 's' {
-				kind = kind[:len(kind)-1] // Remove the last character
-			}
-			filter = fmt.Sprintf("?filter=kind=%s", kind)
-		}
-		if name != "" {
-			if filter != "" {
-				filter += fmt.Sprintf(",metadata.name=%s", name)
-			} else {
-				filter = fmt.Sprintf("?filter=metadata.name=%s", name)
-			}
-		}
 		if annotation != "" {
 			if filter != "" {
 				filter += fmt.Sprintf(",metadata.annotations.%s", annotation)
 			} else {
-				filter = fmt.Sprintf("?filter=metadata.annotations.%s", annotation)
+				filter = fmt.Sprintf("filter=metadata.annotations.%s", annotation)
 			}
 		}
 
 		entities := fetchEntities(filter)
-		displayEntities(entities)
+
+		if len(entities) == 1 {
+			marshaledYAML, err := yaml.Marshal(entities)
+			if err != nil {
+				fmt.Println("Error marshalling YAML:", err)
+				return
+			}
+			// Print the resulting YAML
+			fmt.Println(string(marshaledYAML))
+		} else {
+			output := [][]string{
+				{"KIND", "NAME", "URL"},
+			}
+			// if annotation != "" {
+			// 	output = [][]string{
+			// 		{"KIND", "NAME", strings.ToUpper(annotation), "URL"},
+			// 	}
+			// }
+
+			for _, entity := range entities {
+				viewUrl := entity.Metadata.Annotations["backstage.io/view-url"].(string)
+				newRow := []string{entity.Kind, entity.Metadata.Name, viewUrl}
+				// if annotation != "" {
+				// 	newRow = []string{entity.Kind, entity.Metadata.Name, entity.Metadata.Annotations[annotation].(string), viewUrl}
+				// }
+				output = append(output, newRow)
+			}
+
+			displayEntities(output)
+
+		}
 	},
 }
 

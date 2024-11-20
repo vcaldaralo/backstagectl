@@ -9,7 +9,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 var checkCmd = &cobra.Command{
@@ -19,49 +19,20 @@ var checkCmd = &cobra.Command{
 
 // Subcommand for checking owners
 var badOwnerCmd = &cobra.Command{
-	Use:   "bad-owner [kind]",
+	Use:   "bad-owner [kind|ref] [name]",
 	Short: "Check the owner of an entity",
 	Run: func(cmd *cobra.Command, args []string) {
 		initAuth() // Initialize authentication
 
-		var kind string
-		filter := ""
+		_, filter := parseArgs(args)
 
-		if len(args) > 0 {
-			kind = args[0] // Assign first argument to kind
-
-			allowedKinds := map[string]bool{
-				"resource":  true,
-				"component": true,
-				"system":    true,
-				"domain":    true,
-				"user":      true,
-				"group":     true,
-				"location":  true,
-			} // Define allowed kinds
-
-			if len(kind) > 0 && kind[len(kind)-1] == 's' {
-				kind = kind[:len(kind)-1] // Remove the last character
-			}
-			if !allowedKinds[kind] {
-				log.Fatalf("error: backstage doesn't have a resource kind '%s'\nAllowed kinds are: %v", kind, allowedKinds)
-			}
-		}
-
-		if kind != "" {
-			if len(kind) > 0 && kind[len(kind)-1] == 's' {
-				kind = kind[:len(kind)-1] // Remove the last character
-			}
-			filter = fmt.Sprintf("&filter=kind=%s", kind)
-		}
-
-		params := fmt.Sprintf("?fields=kind,metadata.name,metadata.namespace,metadata.annotations,spec.owner%s", filter)
+		params := fmt.Sprintf("fields=kind,metadata.namespace,metadata.name,metadata.annotations,spec.owner&%s", filter)
 
 		// Fetch all entities
 		entities := fetchEntities(params)
 
 		// Fetch all users and groups
-		owners := fetchEntities("?filter=kind=group&filter=kind=user&fields=kind,metadata.name,metadata.namespace")
+		owners := fetchEntities("filter=kind=group&filter=kind=user&fields=kind,metadata.namespace,metadata.name")
 
 		// Create a set of valid owners
 		validOwners := make(map[string]bool)
@@ -70,21 +41,22 @@ var badOwnerCmd = &cobra.Command{
 			validOwners[ownerRef] = true
 		}
 
-		w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
-		defer w.Flush()
-		fmt.Fprintln(w, "MISSINGANNOTATION\tENTITYREF\tURL")
-		// Check each entity's owner
+		// Initialize the array with some values
+		output := [][]string{
+			{"ENTITY", "OWNER", "URL"},
+		}
+
 		for _, entity := range entities {
 			owner, ok := entity.Spec["owner"].(string)
 			if !validOwners[owner] && ok {
 				entityRef := getEntityRef(entity)
-				fmt.Fprintf(w, "%s\t%s\t%s\n",
-					owner,
-					entityRef,
-					entity.Metadata.Annotations["backstage.io/view-url"],
-				)
+				viewUrl := entity.Metadata.Annotations["backstage.io/view-url"].(string)
+				newRow := []string{entityRef, owner, viewUrl}
+				output = append(output, newRow)
 			}
 		}
+
+		displayEntities(output)
 	},
 }
 
@@ -114,10 +86,10 @@ var missingAnnotationCmd = &cobra.Command{
 			if len(kind) > 0 && kind[len(kind)-1] == 's' {
 				kind = kind[:len(kind)-1] // Remove the last character
 			}
-			filter = fmt.Sprintf("&filter=kind=%s", kind)
+			filter = fmt.Sprintf("filter=kind=%s", kind)
 		}
 
-		params := fmt.Sprintf("?fields=kind,metadata.name,metadata.namespace,metadata.annotation%s", filter)
+		params := fmt.Sprintf("fields=kind,metadata.namespace,metadata.name,metadata.annotation&%s", filter)
 
 		entities := fetchEntities(params)
 
@@ -129,15 +101,14 @@ var missingAnnotationCmd = &cobra.Command{
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
 		defer w.Flush()
-		fmt.Fprintln(w, "MISSINGANNOTATION\tENTITYREF\tURL")
+		fmt.Fprintln(w, "MISSINGANNOTATION\tENTITYREF")
 		for _, entity := range entities {
 			_, ok := entity.Metadata.Annotations[annotation].(string)
 			if !ok {
 				entityRef := getEntityRef(entity)
-				fmt.Fprintf(w, "%s\t%s\t%s\n",
+				fmt.Fprintf(w, "%s\t%s\n",
 					annotation,
 					entityRef,
-					entity.Metadata.Annotations["backstage.io/view-url"],
 				)
 			}
 		}
@@ -194,17 +165,17 @@ var missingRelationCmd = &cobra.Command{
 			if len(kind) > 0 && kind[len(kind)-1] == 's' {
 				kind = kind[:len(kind)-1] // Remove the last character
 			}
-			filter = fmt.Sprintf("&filter=kind=%s", kind)
+			filter = fmt.Sprintf("filter=kind=%s", kind)
 		}
 		if name != "" {
 			if filter != "" {
 				filter += fmt.Sprintf(",metadata.name=%s", name)
 			} else {
-				filter = fmt.Sprintf("&filter=metadata.name=%s", name)
+				filter = fmt.Sprintf("filter=metadata.name=%s", name)
 			}
 		}
 
-		params := fmt.Sprintf("?fields=kind,metadata.name,metadata.namespace,relations%s", filter)
+		params := fmt.Sprintf("fields=kind,metadata.namespace,metadata.name,relations&%s", filter)
 		entities := fetchEntities(params)
 
 		validRelation := make(map[string][]string) // Map with TargetRef as key and slice of entityRefs as value
@@ -235,8 +206,19 @@ var orphanCmd = &cobra.Command{
 	Short: "Check orphan entities",
 	Run: func(cmd *cobra.Command, args []string) {
 		initAuth() // Initialize authentication
-		entities := fetchEntities("?filter=metadata.annotations.backstage.io/orphan=true")
-		displayEntities(entities)
+		entities := fetchEntities("filter=metadata.annotations.backstage.io/orphan=true")
+
+		output := [][]string{
+			{"KIND", "NAME", "URL"},
+		}
+
+		for _, entity := range entities {
+			viewUrl := entity.Metadata.Annotations["backstage.io/view-url"].(string)
+			newRow := []string{entity.Kind, entity.Metadata.Name, viewUrl}
+			output = append(output, newRow)
+		}
+
+		displayEntities(output)
 	},
 }
 

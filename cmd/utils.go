@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"text/tabwriter"
 
@@ -25,7 +26,17 @@ func parseArgs(args []string) ([]string, string) {
 	var kind, name, filter string
 
 	if len(args) > 0 {
-		kind = args[0] // Assign first argument to kind
+		arg := args[0] // Assign first argument to kind
+
+		pattern := `^[^:]+:[^/]+/[^/]+$`
+		matched, _ := regexp.MatchString(pattern, arg)
+		if matched {
+			ref := strings.Split(arg, ":")
+			kind = ref[0]
+			name = strings.Split(arg, "/")[1]
+		} else {
+			kind = arg
+		}
 
 		allowedKinds := map[string]bool{
 			"resource":  true,

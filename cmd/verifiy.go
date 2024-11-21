@@ -12,15 +12,15 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var checkCmd = &cobra.Command{
-	Use:   "check",
-	Short: "Check various properties of Backstage entities",
+var verifyCmd = &cobra.Command{
+	Use:   "verify",
+	Short: "Verify various properties of Backstage entities",
 }
 
 // Subcommand for checking owners
 var badOwnerCmd = &cobra.Command{
 	Use:   "bad-owner [kind|ref] [name]",
-	Short: "Check the owner of an entity",
+	Short: "Verify wheter an entity has misconfigured owner",
 	Run: func(cmd *cobra.Command, args []string) {
 		initAuth() // Initialize authentication
 
@@ -63,7 +63,7 @@ var badOwnerCmd = &cobra.Command{
 // Subcommand for checking annotations
 var missingAnnotationCmd = &cobra.Command{
 	Use:   "missing-annotation [annotation] [kind]",
-	Short: "Check annotations of an entity",
+	Short: "Verify an annotation is missing for an entity",
 	Run: func(cmd *cobra.Command, args []string) {
 		initAuth() // Initialize authentication
 		// Implement annotation check logic here
@@ -119,7 +119,7 @@ var missingAnnotationCmd = &cobra.Command{
 // Subcommand for checking relations
 var missingRelationCmd = &cobra.Command{
 	Use:   "missing-relation [kind|ref] [name]",
-	Short: "Check relations that doesn't exist for an entity",
+	Short: "Verify relations that doesn't exist for an entity",
 	Run: func(cmd *cobra.Command, args []string) {
 		initAuth() // Initialize authentication
 
@@ -182,7 +182,7 @@ var missingRelationCmd = &cobra.Command{
 		for _, entity := range entities {
 			entityRef := getEntityRef(entity) // Get the entity reference
 			for _, rel := range entity.Relations {
-				if rel.Type == "dependsOn" || rel.Type == "partOf" { // Check the relation type
+				if rel.Type == "dependsOn" || rel.Type == "partOf" { // Verify the relation type
 					validRelation[rel.TargetRef] = append(validRelation[rel.TargetRef], entityRef) // Append entityRef to the slice
 				}
 			}
@@ -203,7 +203,7 @@ var missingRelationCmd = &cobra.Command{
 
 var orphanCmd = &cobra.Command{
 	Use:   "orphan",
-	Short: "Check orphan entities",
+	Short: "Verify orphan entities",
 	Run: func(cmd *cobra.Command, args []string) {
 		initAuth() // Initialize authentication
 		entities := fetchEntities("filter=metadata.annotations.backstage.io/orphan=true")
@@ -224,11 +224,11 @@ var orphanCmd = &cobra.Command{
 
 func init() {
 	// Add subcommands to the check command
-	checkCmd.AddCommand(badOwnerCmd)
-	checkCmd.AddCommand(missingAnnotationCmd)
-	checkCmd.AddCommand(missingRelationCmd)
-	checkCmd.AddCommand(orphanCmd)
+	verifyCmd.AddCommand(badOwnerCmd)
+	verifyCmd.AddCommand(missingAnnotationCmd)
+	verifyCmd.AddCommand(missingRelationCmd)
+	verifyCmd.AddCommand(orphanCmd)
 
 	// Add check command to the root command
-	rootCmd.AddCommand(checkCmd)
+	rootCmd.AddCommand(verifyCmd)
 }

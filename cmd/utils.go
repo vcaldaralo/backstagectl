@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,19 +11,43 @@ import (
 	"regexp"
 	"strings"
 	"text/tabwriter"
-
-	"gopkg.in/yaml.v3"
 )
+
+// func printYaml(obj interface{}) {
+// 	marshaledYAML, err := yaml.Marshal(obj)
+// 	if err != nil {
+// 		fmt.Println("Error marshalling to YAML:", err)
+// 		return
+// 	}
+// 	fmt.Println(string(marshaledYAML))
+// }
 
 // getEntityRef is a placeholder for your actual implementation.
 // Replace this with your actual function logic.
 func getEntityRef(entity Entity) string {
 	return fmt.Sprintf("%s:%s/%s", strings.ToLower(entity.Kind), entity.Metadata.Namespace, entity.Metadata.Name)
+}
+
+func getKindNamespaceName(entityRef string) (string, string, string) {
+
+	var kind, namespace, name string
+
+	pattern := `^[^:]+:[^/]+/[^/]+$`
+	matched, _ := regexp.MatchString(pattern, entityRef)
+	if matched {
+		ref := strings.Split(entityRef, ":")
+		kind = ref[0]
+		name = strings.Split(entityRef, "/")[1]
+	} else {
+		fmt.Sprintf("getKindNamespaceName: %s not a valid entityRef {kind}:{namespace}/{name}", entityRef)
+	}
+
+	return kind, namespace, name
 
 }
 
 // parseArgs parses command line arguments and returns relevant values.
-func parseArgs(args []string) ([]string, string) {
+func parseArgs(args []string) (string, string, string) {
 	var kind, name, filter string
 
 	if len(args) > 0 {
@@ -74,10 +99,76 @@ func parseArgs(args []string) ([]string, string) {
 		}
 	}
 
-	return []string{kind, name}, filter
+	return kind, name, filter
 }
 
-func fetchEntities(queryParameters string) []Entity {
+func fetchEntitiesByRefs(payload Payload) []Entity {
+
+	var entities []Entity
+	var nextCursor string
+
+	// Convert the payload to JSON
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		log.Fatalf("Error marshalling payload to JSON: %v", err)
+	}
+
+	for {
+		url := fmt.Sprintf("%s/api/catalog/entities/by-refs", baseUrl)
+		if nextCursor != "" {
+			url += fmt.Sprintf("&cursor=%s", nextCursor) // Append nextCursor to the URL
+		}
+
+		// Create a new POST request
+		req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+		if err != nil {
+			log.Fatalf("Error creating request: %w", err)
+		}
+
+		req.Header.Set("Content-Type", "application/json")
+
+		addAuthHeader(req)
+
+		resp, err := client.Do(req)
+		if err != nil {
+			fmt.Printf("Error making request: %v\n", err)
+			return nil
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			log.Fatalf("%s", body)
+		} else {
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				fmt.Printf("Error reading response: %v\n", err)
+				return nil
+			}
+
+			var entitiesResponse EntitiesResponse
+			err = json.Unmarshal(body, &entitiesResponse)
+			if err != nil {
+				fmt.Println("Error unmarshalling JSON:", err)
+				return nil
+			}
+
+			// Process the items
+			entities = append(entities, entitiesResponse.Items...)
+
+			// Check for nextCursor to continue fetching
+			nextCursor = entitiesResponse.PageInfo.NextCursor
+			if nextCursor == "" {
+				break // Exit the loop if there are no more cursors
+			}
+		}
+	}
+
+	// Implement your logic to fetch all entities
+	return entities
+}
+
+func fetchEntitiesByQuery(queryParameters string) []Entity {
 	var entities []Entity
 	var nextCursor string
 	for {
@@ -136,22 +227,10 @@ func displayEntities(output [][]string) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
 	defer w.Flush()
 
-	// Print each key-value pair
-	if len(output) != 2 {
-		header := output[0]
-		fmt.Fprintln(w, strings.Join(header, "\t"))
+	header := output[0]
+	fmt.Fprintln(w, strings.Join(header, "\t"))
 
-		for _, row := range output[1:] { // Skip the header
-			fmt.Fprintln(w, strings.Join(row, "\t"))
-		}
-	} else {
-		// Print the entire YAML without filtering
-		marshaledYAML, err := yaml.Marshal(output[1:])
-		if err != nil {
-			fmt.Println("Error marshalling YAML:", err)
-			return
-		}
-		// Print the resulting YAML
-		fmt.Println(string(marshaledYAML))
+	for _, row := range output[1:] { // Skip the header
+		fmt.Fprintln(w, strings.Join(row, "\t"))
 	}
 }

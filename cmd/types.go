@@ -29,3 +29,8 @@ type Entity struct {
 }
 
 type Entities []Entity
+
+type Payload struct {
+	EntityRefs []string `json:"entityRefs"`
+	Fields     []string `json:"fields"`
+}

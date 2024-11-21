@@ -4,12 +4,9 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"regexp"
-	"strings"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
 
 var verifyCmd = &cobra.Command{
@@ -24,15 +21,15 @@ var badOwnerCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		initAuth() // Initialize authentication
 
-		_, filter := parseArgs(args)
+		_, _, filter := parseArgs(args)
 
 		params := fmt.Sprintf("fields=kind,metadata.namespace,metadata.name,metadata.annotations,spec.owner&%s", filter)
 
 		// Fetch all entities
-		entities := fetchEntities(params)
+		entities := fetchEntitiesByQuery(params)
 
 		// Fetch all users and groups
-		owners := fetchEntities("filter=kind=group&filter=kind=user&fields=kind,metadata.namespace,metadata.name")
+		owners := fetchEntitiesByQuery("filter=kind=group&filter=kind=user&fields=kind,metadata.namespace,metadata.name")
 
 		// Create a set of valid owners
 		validOwners := make(map[string]bool)
@@ -91,7 +88,7 @@ var missingAnnotationCmd = &cobra.Command{
 
 		params := fmt.Sprintf("fields=kind,metadata.namespace,metadata.name,metadata.annotation&%s", filter)
 
-		entities := fetchEntities(params)
+		entities := fetchEntitiesByQuery(params)
 
 		validOwners := make(map[string]bool)
 		for _, entity := range entities {
@@ -123,81 +120,46 @@ var missingRelationCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		initAuth() // Initialize authentication
 
-		var kind, name string
-		filter := ""
-
-		if len(args) > 0 {
-			arg := args[0] // Assign first argument to kind
-
-			pattern := `^[^:]+:[^/]+/[^/]+$`
-			matched, _ := regexp.MatchString(pattern, arg)
-			if matched {
-				ref := strings.Split(arg, ":")
-				kind = ref[0]
-				name = strings.Split(arg, "/")[1]
-			} else {
-				kind = arg
-			}
-
-			allowedKinds := map[string]bool{
-				"resource":  true,
-				"component": true,
-				"system":    true,
-				"domain":    true,
-				"user":      true,
-				"group":     true,
-				"location":  true,
-			} // Define allowed kinds
-
-			if len(kind) > 0 && kind[len(kind)-1] == 's' {
-				kind = kind[:len(kind)-1] // Remove the last character
-			}
-			if !allowedKinds[kind] {
-				log.Fatalf("error: backstage doesn't have a resource kind '%s'\nAllowed kinds are: %v", kind, allowedKinds)
-			}
-		}
-
-		if len(args) > 1 && name == "" {
-			name = args[1] // Assign second argument to name
-		}
-
-		if kind != "" {
-			if len(kind) > 0 && kind[len(kind)-1] == 's' {
-				kind = kind[:len(kind)-1] // Remove the last character
-			}
-			filter = fmt.Sprintf("filter=kind=%s", kind)
-		}
-		if name != "" {
-			if filter != "" {
-				filter += fmt.Sprintf(",metadata.name=%s", name)
-			} else {
-				filter = fmt.Sprintf("filter=metadata.name=%s", name)
-			}
-		}
+		_, _, filter := parseArgs(args)
 
 		params := fmt.Sprintf("fields=kind,metadata.namespace,metadata.name,relations&%s", filter)
-		entities := fetchEntities(params)
+		entities := fetchEntitiesByQuery(params)
 
-		validRelation := make(map[string][]string) // Map with TargetRef as key and slice of entityRefs as value
+		relationTarget := make(map[string][]string) // Map with TargetRef as key and slice of entityRefs as value
 		for _, entity := range entities {
 			entityRef := getEntityRef(entity) // Get the entity reference
 			for _, rel := range entity.Relations {
 				if rel.Type == "dependsOn" || rel.Type == "partOf" { // Verify the relation type
-					validRelation[rel.TargetRef] = append(validRelation[rel.TargetRef], entityRef) // Append entityRef to the slice
+					relationTarget[rel.TargetRef] = append(relationTarget[rel.TargetRef], entityRef) // Append entityRef to the slice
 				}
 			}
 		}
 
-		// for targetRef := range validRelation { // Iterate over each key in validRelation
-		// 	fmt.Printf("%s\n", targetRef) // Print the key
-		// }
-
-		yamlData, err := yaml.Marshal(validRelation)
-		if err != nil {
-			log.Fatalf("error: %v", err)
+		var verifiEntityRef []string
+		for key := range relationTarget {
+			verifiEntityRef = append(verifiEntityRef, key)
 		}
-		fmt.Println(string(yamlData))
 
+		payload := Payload{
+			EntityRefs: verifiEntityRef,
+			Fields:     []string{"kind", "metadata.name"},
+		}
+
+		entities = fetchEntitiesByRefs(payload)
+
+		output := [][]string{
+			{"KIND", "NAME", "ENTITIYREF"},
+		}
+
+		for i, entity := range entities {
+			if entity.Kind == "" {
+				kind, _, name := getKindNamespaceName(verifiEntityRef[i])
+				// fmt.Printf("Key '%s' in validRelation does not have a corresponding entityRef\n", key)
+				newRow := []string{kind, name, verifiEntityRef[i]}
+				output = append(output, newRow)
+			}
+		}
+		displayEntities(output)
 	},
 }
 
@@ -206,7 +168,8 @@ var orphanCmd = &cobra.Command{
 	Short: "Verify orphan entities",
 	Run: func(cmd *cobra.Command, args []string) {
 		initAuth() // Initialize authentication
-		entities := fetchEntities("filter=metadata.annotations.backstage.io/orphan=true")
+
+		entities := fetchEntitiesByQuery("filter=metadata.annotations.backstage.io/orphan=true")
 
 		output := [][]string{
 			{"KIND", "NAME", "URL"},

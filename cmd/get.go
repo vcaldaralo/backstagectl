@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -14,7 +15,7 @@ var getCmd = &cobra.Command{
 		initAuth() // Initialize authentication
 		annotation, _ := cmd.Flags().GetString("annotation")
 
-		_, filter := parseArgs(args)
+		_, _, filter := parseArgs(args)
 
 		if annotation != "" {
 			if filter != "" {
@@ -24,10 +25,13 @@ var getCmd = &cobra.Command{
 			}
 		}
 
-		entities := fetchEntities(filter)
+		entities := fetchEntitiesByQuery(filter)
 
 		if len(entities) == 1 {
-			marshaledYAML, err := yaml.Marshal(entities)
+			e := entities[0]
+			entities[0].Metadata.Annotations["backstage.io/web-url"] = fmt.Sprintf("%s/catalog/%s/%s/%s", baseUrl, e.Metadata.Namespace, strings.ToLower(e.Kind), strings.ToLower(e.Metadata.Name))
+			entities[0].Metadata.Annotations["backstage.io/entity-ref"] = fmt.Sprintf("%s:%s/%s", strings.ToLower(e.Kind), e.Metadata.Namespace, strings.ToLower(e.Metadata.Name))
+			marshaledYAML, err := yaml.Marshal(entities[0])
 			if err != nil {
 				fmt.Println("Error marshalling YAML:", err)
 				return
@@ -38,11 +42,6 @@ var getCmd = &cobra.Command{
 			output := [][]string{
 				{"KIND", "NAME", "URL"},
 			}
-			// if annotation != "" {
-			// 	output = [][]string{
-			// 		{"KIND", "NAME", strings.ToUpper(annotation), "URL"},
-			// 	}
-			// }
 
 			for _, entity := range entities {
 				viewUrl := entity.Metadata.Annotations["backstage.io/view-url"].(string)
@@ -52,9 +51,7 @@ var getCmd = &cobra.Command{
 				// }
 				output = append(output, newRow)
 			}
-
 			displayEntities(output)
-
 		}
 	},
 }

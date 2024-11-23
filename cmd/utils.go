@@ -11,16 +11,18 @@ import (
 	"regexp"
 	"strings"
 	"text/tabwriter"
+
+	"gopkg.in/yaml.v3"
 )
 
-// func printYaml(obj interface{}) {
-// 	marshaledYAML, err := yaml.Marshal(obj)
-// 	if err != nil {
-// 		fmt.Println("Error marshalling to YAML:", err)
-// 		return
-// 	}
-// 	fmt.Println(string(marshaledYAML))
-// }
+func printYaml(obj interface{}) {
+	marshaledYAML, err := yaml.Marshal(obj)
+	if err != nil {
+		fmt.Println("Error marshalling to YAML:", err)
+		return
+	}
+	fmt.Println(string(marshaledYAML))
+}
 
 // getEntityRef is a placeholder for your actual implementation.
 // Replace this with your actual function logic.

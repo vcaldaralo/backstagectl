@@ -37,7 +37,8 @@ func getKindNamespaceName(entityRef string) (string, string, string) {
 	if matched {
 		ref := strings.Split(entityRef, ":")
 		kind = ref[0]
-		name = strings.Split(entityRef, "/")[1]
+		namespace = strings.Split(ref[1], "/")[0]
+		name = strings.Split(ref[1], "/")[1]
 	} else {
 		fmt.Sprintf("getKindNamespaceName: %s not a valid entityRef {kind}:{namespace}/{name}", entityRef)
 	}
@@ -47,8 +48,8 @@ func getKindNamespaceName(entityRef string) (string, string, string) {
 }
 
 // parseArgs parses command line arguments and returns relevant values.
-func parseArgs(args []string) (string, string, string) {
-	var kind, name, filter string
+func parseArgs(args []string) (string, string, string, string) {
+	var kind, namespace, name, filter string
 
 	if len(args) > 0 {
 		arg := args[0] // Assign first argument to kind
@@ -58,7 +59,8 @@ func parseArgs(args []string) (string, string, string) {
 		if matched {
 			ref := strings.Split(arg, ":")
 			kind = ref[0]
-			name = strings.Split(arg, "/")[1]
+			namespace = strings.Split(ref[1], "/")[0]
+			name = strings.Split(ref[1], "/")[1]
 		} else {
 			kind = arg
 		}
@@ -91,6 +93,13 @@ func parseArgs(args []string) (string, string, string) {
 		}
 		filter = fmt.Sprintf("filter=kind=%s", kind)
 	}
+	if namespace != "" {
+		if filter != "" {
+			filter += fmt.Sprintf(",metadata.namespace=%s", namespace)
+		} else {
+			filter = fmt.Sprintf("filter=metadata.namespace=%s", namespace)
+		}
+	}
 	if name != "" {
 		if filter != "" {
 			filter += fmt.Sprintf(",metadata.name=%s", name)
@@ -99,7 +108,7 @@ func parseArgs(args []string) (string, string, string) {
 		}
 	}
 
-	return kind, name, filter
+	return kind, namespace, name, filter
 }
 
 func fetchEntitiesByRefs(payload Payload) []Entity {

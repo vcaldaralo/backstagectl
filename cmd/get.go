@@ -15,7 +15,7 @@ var getCmd = &cobra.Command{
 		initAuth() // Initialize authentication
 		annotation, _ := cmd.Flags().GetString("annotation")
 
-		_, _, filter := parseArgs(args)
+		_, _, _, filter := parseArgs(args)
 
 		if annotation != "" {
 			if filter != "" {
@@ -40,12 +40,12 @@ var getCmd = &cobra.Command{
 			fmt.Println(string(marshaledYAML))
 		} else {
 			output := [][]string{
-				{"KIND", "NAME", "URL"},
+				{"NAMESPACE", "KIND", "NAME", "URL"},
 			}
 
 			for _, entity := range entities {
 				viewUrl := entity.Metadata.Annotations["backstage.io/view-url"].(string)
-				newRow := []string{entity.Kind, entity.Metadata.Name, viewUrl}
+				newRow := []string{entity.Metadata.Namespace, entity.Kind, entity.Metadata.Name, viewUrl}
 				// if annotation != "" {
 				// 	newRow = []string{entity.Kind, entity.Metadata.Name, entity.Metadata.Annotations[annotation].(string), viewUrl}
 				// }

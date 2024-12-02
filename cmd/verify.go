@@ -169,23 +169,24 @@ var entityNotFoundCmd = &cobra.Command{
 		entities = fetchEntitiesByRefs(payload)
 
 		header := []string{"ENTITYNOTFOUND", "USEDIN"}
-		targetNotFound := make(map[string][]string)
+		// targetNotFound := make(map[string][]string)
 		var data [][]string
 		for i, entity := range entities {
 			if entity.Kind == "" {
 				entityNotFound := cleanNamespaceDefault(verifiEntityRef[i])
 				usedin := strings.Join(relationTarget[verifiEntityRef[i]], ", ")
 				row := []string{entityNotFound, usedin}
-				targetNotFound[entityNotFound] = relationTarget[verifiEntityRef[i]]
-				if len(targetNotFound) == 1 {
-					header = []string{"ENTITYNOTFOUND", "USEDIN", "URL"}
-					for _, entity := range relationTarget[verifiEntityRef[i]] {
-						row := []string{entityNotFound, entity, getEntityUrlfromRef(addNamespaceDefault(entity))}
-						data = append(data, row)
-					}
-				} else {
-					data = append(data, row)
-				}
+				// targetNotFound[entityNotFound] = relationTarget[verifiEntityRef[i]]
+				// if len(targetNotFound) == 1 {
+				// 	header = []string{"ENTITYNOTFOUND", "USEDIN", "URL"}
+				// 	for _, entity := range relationTarget[verifiEntityRef[i]] {
+				// 		row := []string{entityNotFound, entity, getEntityUrlfromRef(addNamespaceDefault(entity))}
+				// 		data = append(data, row)
+				// 	}
+				// } else {
+				// 		data = append(data, row)
+				// }
+				data = append(data, row)
 			}
 		}
 		displayEntities(header, data)

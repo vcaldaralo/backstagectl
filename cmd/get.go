@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -28,30 +27,27 @@ var getCmd = &cobra.Command{
 		entities := fetchEntitiesByQuery(filter)
 
 		if len(entities) == 1 {
-			e := entities[0]
-			entities[0].Metadata.Annotations["backstage.io/web-url"] = fmt.Sprintf("%s/catalog/%s/%s/%s", baseUrl, e.Metadata.Namespace, strings.ToLower(e.Kind), strings.ToLower(e.Metadata.Name))
-			entities[0].Metadata.Annotations["backstage.io/entity-ref"] = fmt.Sprintf("%s:%s/%s", strings.ToLower(e.Kind), e.Metadata.Namespace, strings.ToLower(e.Metadata.Name))
+			entity := entities[0]
+			entities[0].Metadata.Annotations["backstage.io/web-url"] = getEntityUrl(entity)
+			entities[0].Metadata.Annotations["backstage.io/entity-ref"] = getEntityRef(entity)
 			marshaledYAML, err := yaml.Marshal(entities[0])
 			if err != nil {
-				fmt.Println("Error marshalling YAML:", err)
+				fmt.Println("error marshalling YAML:", err)
 				return
 			}
 			// Print the resulting YAML
-			fmt.Println(string(marshaledYAML))
+			fmt.Print(string(marshaledYAML))
 		} else {
-			output := [][]string{
-				{"NAMESPACE", "KIND", "NAME", "URL"},
-			}
-
+			var data [][]string
 			for _, entity := range entities {
-				viewUrl := entity.Metadata.Annotations["backstage.io/view-url"].(string)
-				newRow := []string{entity.Metadata.Namespace, entity.Kind, entity.Metadata.Name, viewUrl}
+				newRow := []string{entity.Metadata.Namespace, entity.Kind, entity.Metadata.Name, getEntityRef(entity), getEntityUrl(entity)}
 				// if annotation != "" {
 				// 	newRow = []string{entity.Kind, entity.Metadata.Name, entity.Metadata.Annotations[annotation].(string), viewUrl}
 				// }
-				output = append(output, newRow)
+				data = append(data, newRow)
 			}
-			displayEntities(output)
+			header := []string{"NAMESPACE", "KIND", "NAME", "ENTITYREF", "URL"}
+			displayEntities(header, data)
 		}
 	},
 }

@@ -18,20 +18,21 @@ import (
 func printYaml(obj interface{}) {
 	marshaledYAML, err := yaml.Marshal(obj)
 	if err != nil {
-		fmt.Println("Error marshalling to YAML:", err)
+		fmt.Println("error marshalling to YAML:", err)
 		return
 	}
-	fmt.Println(string(marshaledYAML))
+	fmt.Print(string(marshaledYAML))
 }
 
-// getEntityRef is a placeholder for your actual implementation.
-// Replace this with your actual function logic.
 func getEntityRef(entity Entity) string {
 	return fmt.Sprintf("%s:%s/%s", strings.ToLower(entity.Kind), entity.Metadata.Namespace, entity.Metadata.Name)
 }
 
-func getKindNamespaceName(entityRef string) (string, string, string) {
+func getEntityUrl(entity Entity) string {
+	return fmt.Sprintf("%s/catalog/%s/%s/%s", baseUrl, entity.Metadata.Namespace, strings.ToLower(entity.Kind), strings.ToLower(entity.Metadata.Name))
+}
 
+func getKindNamespaceName(entityRef string) (string, string, string) {
 	var kind, namespace, name string
 
 	pattern := `^[^:]+:[^/]+/[^/]+$`
@@ -42,19 +43,17 @@ func getKindNamespaceName(entityRef string) (string, string, string) {
 		namespace = strings.Split(ref[1], "/")[0]
 		name = strings.Split(ref[1], "/")[1]
 	} else {
-		fmt.Sprintf("getKindNamespaceName: %s not a valid entityRef {kind}:{namespace}/{name}", entityRef)
+		fmt.Printf("getKindNamespaceName: %s not a valid entityRef {kind}:{namespace}/{name}", entityRef)
 	}
 
 	return kind, namespace, name
-
 }
 
-// parseArgs parses command line arguments and returns relevant values.
 func parseArgs(args []string) (string, string, string, string) {
 	var kind, namespace, name, filter string
 
 	if len(args) > 0 {
-		arg := args[0] // Assign first argument to kind
+		arg := args[0]
 
 		pattern := `^[^:]+:[^/]+/[^/]+$`
 		matched, _ := regexp.MatchString(pattern, arg)
@@ -75,10 +74,10 @@ func parseArgs(args []string) (string, string, string, string) {
 			"user":      true,
 			"group":     true,
 			"location":  true,
-		} // Define allowed kinds
+		}
 
 		if len(kind) > 0 && kind[len(kind)-1] == 's' {
-			kind = kind[:len(kind)-1] // Remove the last character
+			kind = kind[:len(kind)-1]
 		}
 		if !allowedKinds[kind] {
 			log.Fatalf("error: backstage doesn't have a resource kind '%s'\nAllowed kinds are: %v", kind, allowedKinds)
@@ -86,12 +85,12 @@ func parseArgs(args []string) (string, string, string, string) {
 	}
 
 	if len(args) > 1 && name == "" {
-		name = args[1] // Assign second argument to name
+		name = args[1]
 	}
 
 	if kind != "" {
 		if len(kind) > 0 && kind[len(kind)-1] == 's' {
-			kind = kind[:len(kind)-1] // Remove the last character
+			kind = kind[:len(kind)-1]
 		}
 		filter = fmt.Sprintf("filter=kind=%s", kind)
 	}
@@ -118,22 +117,20 @@ func fetchEntitiesByRefs(payload Payload) []Entity {
 	var entities []Entity
 	var nextCursor string
 
-	// Convert the payload to JSON
 	jsonData, err := json.Marshal(payload)
 	if err != nil {
-		log.Fatalf("Error marshalling payload to JSON: %v", err)
+		log.Fatalf("error marshalling payload to JSON: %v", err)
 	}
 
 	for {
 		url := fmt.Sprintf("%s/api/catalog/entities/by-refs", baseUrl)
 		if nextCursor != "" {
-			url += fmt.Sprintf("&cursor=%s", nextCursor) // Append nextCursor to the URL
+			url += fmt.Sprintf("&cursor=%s", nextCursor)
 		}
 
-		// Create a new POST request
 		req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 		if err != nil {
-			log.Fatalf("Error creating request: %w", err)
+			log.Fatalf("error creating request: %v", err)
 		}
 
 		req.Header.Set("Content-Type", "application/json")
@@ -142,7 +139,7 @@ func fetchEntitiesByRefs(payload Payload) []Entity {
 
 		resp, err := client.Do(req)
 		if err != nil {
-			fmt.Printf("Error making request: %v\n", err)
+			fmt.Printf("error making request: %v\n", err)
 			return nil
 		}
 		defer resp.Body.Close()
@@ -153,29 +150,26 @@ func fetchEntitiesByRefs(payload Payload) []Entity {
 		} else {
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
-				fmt.Printf("Error reading response: %v\n", err)
+				fmt.Printf("error reading response: %v\n", err)
 				return nil
 			}
 
 			var entitiesResponse EntitiesResponse
 			err = json.Unmarshal(body, &entitiesResponse)
 			if err != nil {
-				fmt.Println("Error unmarshalling JSON:", err)
+				fmt.Println("error unmarshalling JSON:", err)
 				return nil
 			}
 
-			// Process the items
 			entities = append(entities, entitiesResponse.Items...)
 
-			// Check for nextCursor to continue fetching
 			nextCursor = entitiesResponse.PageInfo.NextCursor
 			if nextCursor == "" {
-				break // Exit the loop if there are no more cursors
+				break
 			}
 		}
 	}
 
-	// Implement your logic to fetch all entities
 	return entities
 }
 
@@ -185,20 +179,20 @@ func fetchEntitiesByQuery(queryParameters string) []Entity {
 	for {
 		url := fmt.Sprintf("%s/api/catalog/entities/by-query?%s", baseUrl, queryParameters)
 		if nextCursor != "" {
-			url += fmt.Sprintf("&cursor=%s", nextCursor) // Append nextCursor to the URL
+			url += fmt.Sprintf("&cursor=%s", nextCursor)
 		}
 
 		req, err := http.NewRequest("GET", url, nil)
 		if err != nil {
-			fmt.Printf("Error creating request: %v\n", err)
+			fmt.Printf("error creating request: %v\n", err)
 			return nil
 		}
 
-		addAuthHeader(req) // Add authentication header
+		addAuthHeader(req)
 
 		resp, err := client.Do(req)
 		if err != nil {
-			fmt.Printf("Error making request: %v\n", err)
+			fmt.Printf("error making request: %v\n", err)
 			return nil
 		}
 		defer resp.Body.Close()
@@ -209,39 +203,50 @@ func fetchEntitiesByQuery(queryParameters string) []Entity {
 		} else {
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
-				fmt.Printf("Error reading response: %v\n", err)
+				fmt.Printf("error reading response: %v\n", err)
 				return nil
 			}
 
 			var entitiesResponse EntitiesResponse
 			err = json.Unmarshal(body, &entitiesResponse)
 			if err != nil {
-				fmt.Println("Error unmarshalling JSON:", err)
+				fmt.Println("error unmarshalling JSON:", err)
 				return nil
 			}
 
-			// Process the items
 			entities = append(entities, entitiesResponse.Items...)
 
-			// Check for nextCursor to continue fetching
 			nextCursor = entitiesResponse.PageInfo.NextCursor
 			if nextCursor == "" {
-				break // Exit the loop if there are no more cursors
+				break
 			}
 		}
 	}
-	// Implement your logic to fetch all entities
+
 	return entities
 }
 
-func displayEntities(output [][]string) {
+func displayEntities(header []string, data [][]string) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
 	defer w.Flush()
 
-	header := output[0]
-	fmt.Fprintln(w, strings.Join(header, "\t"))
+	isNamespaceDefaultOnly := true
+	for _, row := range data {
+		if row[0] != "default" {
+			isNamespaceDefaultOnly = false
+			break
+		}
+	}
 
-	for _, row := range output[1:] { // Skip the header
-		fmt.Fprintln(w, strings.Join(row, "\t"))
+	if isNamespaceDefaultOnly {
+		fmt.Fprintln(w, strings.Join(header[1:], "\t"))
+		for _, row := range data {
+			fmt.Fprintln(w, strings.Join(row[1:], "\t"))
+		}
+	} else {
+		fmt.Fprintln(w, strings.Join(header, "\t"))
+		for _, row := range data {
+			fmt.Fprintln(w, strings.Join(row, "\t"))
+		}
 	}
 }

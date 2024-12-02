@@ -11,7 +11,7 @@ var rootCmd = &cobra.Command{
 	Use:   "backstagectl",
 	Short: "A CLI tool to interact with Backstage API",
 	Long: `backstagectl is a command line interface tool that allows you to 
-interact with Backstage API in read-only mode. You can fetch information 
+interact with Backstage API. You can fetch information 
 about entities, APIs, and other entities.`,
 }
 

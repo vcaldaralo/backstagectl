@@ -35,18 +35,14 @@ var getCmd = &cobra.Command{
 				fmt.Println("error marshalling YAML:", err)
 				return
 			}
-			// Print the resulting YAML
 			fmt.Print(string(marshaledYAML))
 		} else {
 			var data [][]string
 			for _, entity := range entities {
-				newRow := []string{entity.Metadata.Namespace, entity.Kind, entity.Metadata.Name, getEntityRef(entity), getEntityUrl(entity)}
-				// if annotation != "" {
-				// 	newRow = []string{entity.Kind, entity.Metadata.Name, entity.Metadata.Annotations[annotation].(string), viewUrl}
-				// }
+				newRow := []string{getEntityRef(entity), getEntityUrl(entity)}
 				data = append(data, newRow)
 			}
-			header := []string{"NAMESPACE", "KIND", "NAME", "ENTITYREF", "URL"}
+			header := []string{"ENTITYREF", "URL"}
 			displayEntities(header, data)
 		}
 	},

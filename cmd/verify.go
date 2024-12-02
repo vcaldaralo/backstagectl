@@ -151,44 +151,35 @@ var entityNotFoundCmd = &cobra.Command{
 			log.Fatalf("Relations 'dependsOn' or 'partOf' for these entities don't exist")
 		}
 
-		f, _ := cmd.Flags().GetString("filter")
-		f = addNamespaceDefault(f)
+		filterNotFoundEntities, _ := cmd.Flags().GetString("filter")
+		filterNotFoundEntities = addNamespaceDefault(filterNotFoundEntities)
 
-		var verifiEntityRef []string
-		for key := range relationTarget {
-			if strings.Contains(key, f) {
-				verifiEntityRef = append(verifiEntityRef, key)
+		var verifyEntityRef []string
+		for notFoundEntity := range relationTarget {
+			if strings.Contains(notFoundEntity, filterNotFoundEntities) {
+				verifyEntityRef = append(verifyEntityRef, notFoundEntity)
 			}
 		}
 
 		payload := Payload{
-			EntityRefs: verifiEntityRef,
+			EntityRefs: verifyEntityRef,
 			Fields:     []string{"kind", "metadata.name"},
 		}
 
 		entities = fetchEntitiesByRefs(payload)
 
-		header := []string{"ENTITYNOTFOUND", "USEDIN"}
-		// targetNotFound := make(map[string][]string)
 		var data [][]string
 		for i, entity := range entities {
 			if entity.Kind == "" {
-				entityNotFound := cleanNamespaceDefault(verifiEntityRef[i])
-				usedin := strings.Join(relationTarget[verifiEntityRef[i]], ", ")
-				row := []string{entityNotFound, usedin}
-				// targetNotFound[entityNotFound] = relationTarget[verifiEntityRef[i]]
-				// if len(targetNotFound) == 1 {
-				// 	header = []string{"ENTITYNOTFOUND", "USEDIN", "URL"}
-				// 	for _, entity := range relationTarget[verifiEntityRef[i]] {
-				// 		row := []string{entityNotFound, entity, getEntityUrlfromRef(addNamespaceDefault(entity))}
-				// 		data = append(data, row)
-				// 	}
-				// } else {
-				// 		data = append(data, row)
-				// }
-				data = append(data, row)
+				entityNotFound := cleanNamespaceDefault(verifyEntityRef[i])
+				for _, usedin := range relationTarget[verifyEntityRef[i]] {
+					entityRef := usedin
+					row := []string{entityNotFound, cleanNamespaceDefault(entityRef), getEntityUrlfromRef(addNamespaceDefault(entityRef))}
+					data = append(data, row)
+				}
 			}
 		}
+		header := []string{"ENTITYNOTFOUND", "USEDIN", "URL"}
 		displayEntities(header, data)
 	},
 }

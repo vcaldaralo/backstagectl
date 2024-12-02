@@ -9,7 +9,7 @@ import (
 )
 
 var getCmd = &cobra.Command{
-	Use:   "get [kind|ref] [name]",
+	Use:   "get [kind|entityRef] [name]",
 	Short: "Display one or many Backstage entities",
 	Run: func(cmd *cobra.Command, args []string) {
 		initAuth() // Initialize authentication
@@ -44,10 +44,17 @@ var getCmd = &cobra.Command{
 		} else {
 			var data [][]string
 			for _, entity := range entities {
-				newRow := []string{getEntityRef(entity), getEntityUrl(entity)}
+				entityRef := getEntityRef(entity)
+				kind, namespace, name := getKindNamespaceName(entityRef)
+				newRow := []string{
+					namespace,
+					kind,
+					name,
+					getEntityUrl(entity),
+				}
 				data = append(data, newRow)
 			}
-			header := []string{"ENTITYREF", "URL"}
+			header := []string{"NAMESPACE", "KIND", "NAME", "URL"}
 			displayEntities(header, data)
 		}
 	},

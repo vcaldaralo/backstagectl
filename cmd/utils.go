@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"sort"
 	"strings"
 	"text/tabwriter"
 
@@ -67,13 +68,20 @@ func addNamespaceDefault(entityRef string) string {
 func getKindNamespaceName(entityRef string) (string, string, string) {
 	var kind, namespace, name string
 
-	pattern := `^[^:]+:[^/]+/[^/]+$`
+	pattern := `^[^:]+:.+$`
 	matched, _ := regexp.MatchString(pattern, entityRef)
 	if matched {
 		ref := strings.Split(entityRef, ":")
 		kind = ref[0]
-		namespace = strings.Split(ref[1], "/")[0]
-		name = strings.Split(ref[1], "/")[1]
+		pattern := `^[^/]+/[^/]+$`
+		matched, _ := regexp.MatchString(pattern, ref[1])
+		if matched {
+			namespace = strings.Split(ref[1], "/")[0]
+			name = strings.Split(ref[1], "/")[1]
+		} else {
+			namespace = "default"
+			name = ref[1]
+		}
 	} else {
 		log.Fatalf("getKindNamespaceName: %s not a valid entityRef {kind}:{namespace}/{name}", entityRef)
 	}
@@ -282,15 +290,18 @@ func displayEntities(header []string, data [][]string) {
 		}
 	}
 
+	sort.Slice(data, func(i, j int) bool {
+		return data[i][0] < data[j][0] // Compare the first column
+	})
 	if isNamespaceDefaultOnly && len(data) > 0 {
-		fmt.Fprintln(w, strings.Join(header[1:], "\t"))
+		fmt.Fprintln(w, strings.Join(header[1:], "\t\t\t"))
 		for _, row := range data {
-			fmt.Fprintln(w, strings.Join(row[1:], "\t"))
+			fmt.Fprintln(w, strings.Join(row[1:], "\t\t\t"))
 		}
 	} else {
-		fmt.Fprintln(w, strings.Join(header, "\t"))
+		fmt.Fprintln(w, strings.Join(header, "\t\t\t"))
 		for _, row := range data {
-			fmt.Fprintln(w, strings.Join(row, "\t"))
+			fmt.Fprintln(w, strings.Join(row, "\t\t\t"))
 		}
 	}
 }

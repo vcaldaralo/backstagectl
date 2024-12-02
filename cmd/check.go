@@ -23,16 +23,23 @@ var orphanCmd = &cobra.Command{
 
 		var data [][]string
 		for _, entity := range entities {
-			row := []string{getEntityRef(entity), getEntityUrl(entity)}
+			entityRef := getEntityRef(entity)
+			kind, namespace, name := getKindNamespaceName(entityRef)
+			row := []string{
+				namespace,
+				kind,
+				name,
+				getEntityUrl(entity),
+			}
 			data = append(data, row)
 		}
-		header := []string{"ENTITYREF", "URL"}
+		header := []string{"NAMESPACE", "KIND", "NAME", "URL"}
 		displayEntities(header, data)
 	},
 }
 
 var missingAnnotationCmd = &cobra.Command{
-	Use:   "missing-annotation [annotation] [kind]",
+	Use:   "missing-annotation [kind|entityRef] [annotation]",
 	Short: "Annotation that is missing for a group of entities",
 	Run: func(cmd *cobra.Command, args []string) {
 		initAuth()
@@ -45,19 +52,10 @@ var missingAnnotationCmd = &cobra.Command{
 			log.Fatalf("Error: too many arguments provided. Please specify either one or two arguments.")
 		}
 
-		annotation = args[0]
+		filter := parseArgs(args[:len(args)-1])
 
-		kind := ""
-		filter := ""
-		if len(args) == 2 {
-			kind = args[1]
-		}
-		if kind != "" {
-			if len(kind) > 0 && kind[len(kind)-1] == 's' {
-				kind = kind[:len(kind)-1] // Remove the last character
-			}
-			filter = fmt.Sprintf("filter=kind=%s", kind)
-		}
+		annotation = args[1]
+
 		params := fmt.Sprintf("fields=kind,metadata.namespace,metadata.name,metadata.annotation&%s", filter)
 
 		entities := fetchEntitiesByQuery(params)
@@ -66,11 +64,19 @@ var missingAnnotationCmd = &cobra.Command{
 		for _, entity := range entities {
 			_, ok := entity.Metadata.Annotations[annotation].(string)
 			if !ok {
-				row := []string{annotation, getEntityRef(entity), getEntityUrl(entity)}
+				entityRef := getEntityRef(entity)
+				kind, namespace, name := getKindNamespaceName(entityRef)
+				row := []string{
+					namespace,
+					kind,
+					name,
+					annotation,
+					getEntityUrl(entity),
+				}
 				data = append(data, row)
 			}
 		}
-		header := []string{"MISSINGANNOTATION", "ENTITYREF", "URL"}
+		header := []string{"NAMESPACE", "KIND", "NAME", "MISSINGANNOTATION", "URL"}
 		displayEntities(header, data)
 
 	},
@@ -78,7 +84,7 @@ var missingAnnotationCmd = &cobra.Command{
 
 // Subcommand for checking relations
 var entityNotFoundCmd = &cobra.Command{
-	Use:   "entity-not-found [kind|ref] [name]",
+	Use:   "not-found [kind|entityRef] [name]",
 	Short: "Relations that don't exist for an entity",
 	Run: func(cmd *cobra.Command, args []string) {
 		initAuth() // Initialize authentication
@@ -132,16 +138,19 @@ var entityNotFoundCmd = &cobra.Command{
 				entityNotFound := cleanNamespaceDefault(verifyEntityRef[i])
 				for _, usedin := range relationTarget[verifyEntityRef[i]] {
 					entityRef := usedin
+					kind, namespace, name := getKindNamespaceName(entityRef)
 					row := []string{
+						namespace,
+						kind,
+						name,
 						entityNotFound,
-						cleanNamespaceDefault(entityRef),
 						getEntityUrlfromRef(addNamespaceDefault(entityRef)),
 					}
 					data = append(data, row)
 				}
 			}
 		}
-		header := []string{"ENTITYNOTFOUND", "USEDIN", "URL"}
+		header := []string{"NAMESPACE", "KIND", "NAME", "NOTFOUND", "URL"}
 		displayEntities(header, data)
 	},
 }
@@ -151,7 +160,7 @@ func init() {
 	checkCmd.AddCommand(orphanCmd)
 	checkCmd.AddCommand(missingAnnotationCmd)
 	checkCmd.AddCommand(entityNotFoundCmd)
-	entityNotFoundCmd.Flags().StringP("filter", "f", "", "Filter output")
+	entityNotFoundCmd.Flags().StringP("filter", "f", "", "Filter output on ENTITYNOTFOUND")
 
 	rootCmd.AddCommand(checkCmd)
 }

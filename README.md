@@ -39,7 +39,7 @@ backstagectl [command] [options]
 
 - `auth`: Manage authentication with the Backstage IDP.
 - `get`: Display one or many Backstage entities
-- `verify`: Verify properties of Backstage entities
+- `check`: Check properties of Backstage entities
 
 ### Example
 

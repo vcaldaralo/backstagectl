@@ -150,13 +150,12 @@ var entityNotFoundCmd = &cobra.Command{
 				}
 			}
 		}
-		header := []string{"NAMESPACE", "KIND", "NAME", "NOTFOUND", "URL"}
+		header := []string{"NAMESPACE", "KIND", "NAME", "ENTITYNOTFOUND", "URL"}
 		displayEntities(header, data)
 	},
 }
 
 func init() {
-	// Add subcommands to the check command
 	checkCmd.AddCommand(orphanCmd)
 	checkCmd.AddCommand(missingAnnotationCmd)
 	checkCmd.AddCommand(entityNotFoundCmd)

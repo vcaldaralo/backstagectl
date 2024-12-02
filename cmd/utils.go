@@ -291,7 +291,7 @@ func displayEntities(header []string, data [][]string) {
 	}
 
 	sort.Slice(data, func(i, j int) bool {
-		return data[i][0] < data[j][0] // Compare the first column
+		return data[i][0] < data[j][0]
 	})
 	if isNamespaceDefaultOnly && len(data) > 0 {
 		fmt.Fprintln(w, strings.Join(header[1:], "\t\t\t"))

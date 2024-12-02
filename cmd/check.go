@@ -40,9 +40,9 @@ var missingAnnotationCmd = &cobra.Command{
 		var annotation string
 
 		if len(args) == 0 {
-			log.Fatalf("error: no annotation key provided. Please specify an annotation key.")
+			log.Fatalf("Error: no annotation key provided. Please specify an annotation key.")
 		} else if len(args) > 2 {
-			log.Fatalf("error: too many arguments provided. Please specify either one or two arguments.")
+			log.Fatalf("Error: too many arguments provided. Please specify either one or two arguments.")
 		}
 
 		annotation = args[0]
@@ -84,12 +84,12 @@ var entityNotFoundCmd = &cobra.Command{
 		initAuth() // Initialize authentication
 
 		if len(args) == 0 {
-			log.Fatalf("error: no kind or entity ref provided. Please specify one to check them")
+			log.Fatalf("Error: no kind or entityRef provided. Please specify one to check them")
 		} else if len(args) > 2 {
-			log.Fatalf("error: too many arguments provided. Please specify either one or two arguments")
+			log.Fatalf("Error: too many arguments provided. Please specify either one or two arguments")
 		}
 
-		_, _, _, filter := parseArgs(args)
+		filter := parseArgs(args)
 
 		params := fmt.Sprintf("fields=kind,metadata.namespace,metadata.name,relations&%s", filter)
 		entities := fetchEntitiesByQuery(params)
@@ -122,7 +122,9 @@ var entityNotFoundCmd = &cobra.Command{
 			Fields:     []string{"kind", "metadata.name"},
 		}
 
-		entities = fetchEntitiesByRefs(payload)
+		if len(verifyEntityRef) > 0 {
+			entities = fetchEntitiesByRefs(payload)
+		}
 
 		var data [][]string
 		for i, entity := range entities {

@@ -71,7 +71,7 @@ func addAuthHeader(req *http.Request) {
 	// Only add token auth if cert/key not provided
 	if tlsCertPath == "" && tlsKeyPath == "" {
 		if token == "" {
-			fmt.Println("error: either token or TLS certificate/key pair must be provided")
+			fmt.Println("Error: either token or TLS certificate/key pair must be provided")
 			return
 		}
 		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
@@ -126,13 +126,13 @@ func loadAuthConfig(filename string) *AuthConfig {
 	}
 
 	if authConfig.BaseUrl == "" {
-		fmt.Println("error: No baseUrl for the backstage instance provided")
+		fmt.Println("Error: No baseUrl for the backstage instance provided")
 		return nil
 	}
 
 	// Validate loaded values
 	if authConfig.Token == "" && (authConfig.TLSCertPath == "" || authConfig.TLSKeyPath == "") {
-		fmt.Println("error: No valid authentication details found in ~/.config/backstagectl/config.json")
+		fmt.Println("Error: No valid authentication details found in ~/.config/backstagectl/config.json")
 		return nil
 	}
 
@@ -149,12 +149,12 @@ var authCmd = &cobra.Command{
 		tlsKeyPath, _ = cmd.Flags().GetString("tls-key")
 
 		if baseUrl == "" {
-			fmt.Println("error: No baseUrl for the backstage instance provided")
+			fmt.Println("Error: No baseUrl for the backstage instance provided")
 			return
 		}
 		// Validate input
 		if token == "" && (tlsCertPath == "" || tlsKeyPath == "") {
-			fmt.Println("error: You must provide either a token or both TLS certificate and key paths")
+			fmt.Println("Error: You must provide either a token or both TLS certificate and key paths")
 			return
 		}
 

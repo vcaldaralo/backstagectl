@@ -32,6 +32,19 @@ func getEntityRef(entity Entity) string {
 	}
 }
 
+func getEntityUrl(entity Entity) string {
+	return fmt.Sprintf("%s/catalog/%s/%s/%s", baseUrl, entity.Metadata.Namespace, strings.ToLower(entity.Kind), strings.ToLower(entity.Metadata.Name))
+}
+
+func getEntityUrlfromRef(entityRef string) string {
+	pattern := `^([^:]+):([^/]+)/([^/]+)$`
+	matches := regexp.MustCompile(pattern).FindStringSubmatch(entityRef)
+	if matches != nil {
+		return fmt.Sprintf("%s/catalog/%s/%s/%s", baseUrl, matches[2], strings.ToLower(matches[1]), strings.ToLower(matches[3]))
+	}
+	return ""
+}
+
 func cleanNamespaceDefault(entityRef string) string {
 	pattern := `^([^:]+):default/([^/]+)$`
 	matches := regexp.MustCompile(pattern).FindStringSubmatch(entityRef)
@@ -51,19 +64,6 @@ func addNamespaceDefault(entityRef string) string {
 	return entityRef
 }
 
-func getEntityUrl(entity Entity) string {
-	return fmt.Sprintf("%s/catalog/%s/%s/%s", baseUrl, entity.Metadata.Namespace, strings.ToLower(entity.Kind), strings.ToLower(entity.Metadata.Name))
-}
-
-func getEntityUrlfromRef(entityRef string) string {
-	pattern := `^([^:]+):([^/]+)/([^/]+)$`
-	matches := regexp.MustCompile(pattern).FindStringSubmatch(entityRef)
-	if matches != nil {
-		return fmt.Sprintf("%s/catalog/%s/%s/%s", baseUrl, matches[2], strings.ToLower(matches[1]), strings.ToLower(matches[3]))
-	}
-	return ""
-}
-
 func getKindNamespaceName(entityRef string) (string, string, string) {
 	var kind, namespace, name string
 
@@ -75,14 +75,15 @@ func getKindNamespaceName(entityRef string) (string, string, string) {
 		namespace = strings.Split(ref[1], "/")[0]
 		name = strings.Split(ref[1], "/")[1]
 	} else {
-		fmt.Printf("getKindNamespaceName: %s not a valid entityRef {kind}:{namespace}/{name}", entityRef)
+		log.Fatalf("getKindNamespaceName: %s not a valid entityRef {kind}:{namespace}/{name}", entityRef)
 	}
 
 	return kind, namespace, name
 }
 
-func parseArgs(args []string) (string, string, string, string) {
-	var kind, namespace, name, filter string
+func parseArgs(args []string) string {
+	var kinds []string
+	var namespace, name, filter string
 
 	if len(args) > 0 {
 		arg := args[0]
@@ -91,7 +92,7 @@ func parseArgs(args []string) (string, string, string, string) {
 		matched, _ := regexp.MatchString(pattern, arg)
 		if matched {
 			ref := strings.Split(arg, ":")
-			kind = ref[0]
+			kinds = append(kinds, ref[0])
 			pattern := `^[^/]+/[^/]+$`
 			matched, _ := regexp.MatchString(pattern, ref[1])
 			if matched {
@@ -102,25 +103,25 @@ func parseArgs(args []string) (string, string, string, string) {
 				name = ref[1]
 			}
 		} else {
-			kind = arg
+			kinds = strings.Split(arg, ",")
 		}
 
-		allowedKinds := map[string]bool{
-			"all":       true,
-			"resource":  true,
-			"component": true,
-			"system":    true,
-			"domain":    true,
-			"user":      true,
-			"group":     true,
-			"location":  true,
-		}
+		allowedKinds := []string{"resource", "component", "system", "domain", "user", "group", "location"}
 
-		if len(kind) > 0 && kind[len(kind)-1] == 's' {
-			kind = kind[:len(kind)-1]
-		}
-		if !allowedKinds[kind] {
-			log.Fatalf("error: backstage doesn't have a resource kind '%s'\nAllowed kinds are: %v", kind, allowedKinds)
+		for i := range kinds {
+			if len(kinds[i]) > 0 && kinds[i][len(kinds[i])-1] == 's' {
+				kinds[i] = kinds[i][:len(kinds[i])-1]
+			}
+			found := false
+			for _, allowed := range allowedKinds {
+				if allowed == kinds[i] {
+					found = true
+					break
+				}
+			}
+			if !found {
+				log.Fatalf("Error: backstage doesn't have a resource kind '%s'\nAllowed kinds are: %v", kinds[i], allowedKinds)
+			}
 		}
 	}
 
@@ -128,11 +129,14 @@ func parseArgs(args []string) (string, string, string, string) {
 		name = args[1]
 	}
 
-	if kind != "" && kind != "all" {
-		if len(kind) > 0 && kind[len(kind)-1] == 's' {
-			kind = kind[:len(kind)-1]
+	for i := range kinds {
+		if kinds[i] != "" {
+			if filter != "" {
+				filter += fmt.Sprintf(",kind=%s", kinds[i])
+			} else {
+				filter = fmt.Sprintf("filter=kind=%s", kinds[i])
+			}
 		}
-		filter = fmt.Sprintf("filter=kind=%s", kind)
 	}
 	if namespace != "" {
 		if filter != "" {
@@ -149,7 +153,7 @@ func parseArgs(args []string) (string, string, string, string) {
 		}
 	}
 
-	return kind, namespace, name, filter
+	return filter
 }
 
 func fetchEntitiesByRefs(payload Payload) []Entity {
@@ -278,7 +282,7 @@ func displayEntities(header []string, data [][]string) {
 		}
 	}
 
-	if isNamespaceDefaultOnly {
+	if isNamespaceDefaultOnly && len(data) > 0 {
 		fmt.Fprintln(w, strings.Join(header[1:], "\t"))
 		for _, row := range data {
 			fmt.Fprintln(w, strings.Join(row[1:], "\t"))

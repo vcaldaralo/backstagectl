@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -14,7 +15,11 @@ var getCmd = &cobra.Command{
 		initAuth() // Initialize authentication
 		annotation, _ := cmd.Flags().GetString("annotation")
 
-		_, _, _, filter := parseArgs(args)
+		if len(args) == 0 {
+			log.Fatalf("Error: no kind or entityRef provided. Please specify one to check them")
+		}
+
+		filter := parseArgs(args)
 
 		if annotation != "" {
 			if filter != "" {

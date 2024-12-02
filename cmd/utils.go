@@ -106,6 +106,7 @@ func parseArgs(args []string) (string, string, string, string) {
 		}
 
 		allowedKinds := map[string]bool{
+			"all":       true,
 			"resource":  true,
 			"component": true,
 			"system":    true,
@@ -127,7 +128,7 @@ func parseArgs(args []string) (string, string, string, string) {
 		name = args[1]
 	}
 
-	if kind != "" {
+	if kind != "" && kind != "all" {
 		if len(kind) > 0 && kind[len(kind)-1] == 's' {
 			kind = kind[:len(kind)-1]
 		}

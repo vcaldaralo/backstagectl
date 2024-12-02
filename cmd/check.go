@@ -31,50 +31,6 @@ var orphanCmd = &cobra.Command{
 	},
 }
 
-// Subcommand for checking owners
-var missingOwnerCmd = &cobra.Command{
-	Use:   "missing-owner [kind|ref] [name]",
-	Short: "Entities with misconfigured owner",
-	Run: func(cmd *cobra.Command, args []string) {
-		initAuth() // Initialize authentication
-
-		if len(args) == 0 {
-			log.Fatalf("error: no kind or entity ref provided. Please specify one of them")
-		} else if len(args) > 2 {
-			log.Fatalf("error: too many arguments provided. Please specify either one or two arguments.")
-		}
-
-		_, _, _, filter := parseArgs(args)
-
-		params := fmt.Sprintf("fields=kind,metadata.namespace,metadata.name,metadata.annotations,spec.owner&%s", filter)
-
-		// Fetch all entities
-		entities := fetchEntitiesByQuery(params)
-
-		// Fetch all users and groups
-		owners := fetchEntitiesByQuery("filter=kind=group&filter=kind=user&fields=kind,metadata.namespace,metadata.name")
-
-		// Create a set of valid owners
-		validOwners := make(map[string]bool)
-		for _, owner := range owners {
-			ownerRef := getEntityRef(owner)
-			validOwners[ownerRef] = true
-		}
-
-		var data [][]string
-		for _, entity := range entities {
-			owner, ok := entity.Spec["owner"].(string)
-			if !validOwners[owner] && ok {
-				row := []string{owner, getEntityRef(entity), getEntityUrl(entity)}
-				data = append(data, row)
-			}
-		}
-		header := []string{"OWNERNOTFOUND", "ENTITYREF", "URL"}
-		displayEntities(header, data)
-	},
-}
-
-// Subcommand for checking annotations
 var missingAnnotationCmd = &cobra.Command{
 	Use:   "missing-annotation [annotation] [kind]",
 	Short: "Annotation that is missing for a group of entities",
@@ -142,7 +98,7 @@ var entityNotFoundCmd = &cobra.Command{
 		for _, entity := range entities {
 			entityRef := getEntityRef(entity)
 			for _, rel := range entity.Relations {
-				if rel.Type == "dependsOn" || rel.Type == "partOf" {
+				if rel.Type == "dependsOn" || rel.Type == "partOf" || rel.Type == "ownedBy" {
 					relationTarget[rel.TargetRef] = append(relationTarget[rel.TargetRef], entityRef)
 				}
 			}
@@ -175,9 +131,9 @@ var entityNotFoundCmd = &cobra.Command{
 				for _, usedin := range relationTarget[verifyEntityRef[i]] {
 					entityRef := usedin
 					row := []string{
-						entityNotFound, 
-						cleanNamespaceDefault(entityRef), 
-						getEntityUrlfromRef(addNamespaceDefault(entityRef))
+						entityNotFound,
+						cleanNamespaceDefault(entityRef),
+						getEntityUrlfromRef(addNamespaceDefault(entityRef)),
 					}
 					data = append(data, row)
 				}
@@ -191,9 +147,7 @@ var entityNotFoundCmd = &cobra.Command{
 func init() {
 	// Add subcommands to the check command
 	checkCmd.AddCommand(orphanCmd)
-	checkCmd.AddCommand(missingOwnerCmd)
 	checkCmd.AddCommand(missingAnnotationCmd)
-	
 	checkCmd.AddCommand(entityNotFoundCmd)
 	entityNotFoundCmd.Flags().StringP("filter", "f", "", "Filter output")
 

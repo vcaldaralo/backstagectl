@@ -8,9 +8,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var verifyCmd = &cobra.Command{
-	Use:   "verify",
-	Short: "Verify properties of Backstage entities",
+var checkCmd = &cobra.Command{
+	Use:   "check",
+	Short: "Check issues in Backstage catalog",
 }
 
 var orphanCmd = &cobra.Command{
@@ -34,7 +34,7 @@ var orphanCmd = &cobra.Command{
 // Subcommand for checking owners
 var missingOwnerCmd = &cobra.Command{
 	Use:   "missing-owner [kind|ref] [name]",
-	Short: "Wheter an entity has a misconfigured owner",
+	Short: "Entities with misconfigured owner",
 	Run: func(cmd *cobra.Command, args []string) {
 		initAuth() // Initialize authentication
 
@@ -123,7 +123,7 @@ var missingAnnotationCmd = &cobra.Command{
 // Subcommand for checking relations
 var entityNotFoundCmd = &cobra.Command{
 	Use:   "entity-not-found [kind|ref] [name]",
-	Short: "Relations that doesn't exist for an entity",
+	Short: "Relations that don't exist for an entity",
 	Run: func(cmd *cobra.Command, args []string) {
 		initAuth() // Initialize authentication
 
@@ -174,7 +174,11 @@ var entityNotFoundCmd = &cobra.Command{
 				entityNotFound := cleanNamespaceDefault(verifyEntityRef[i])
 				for _, usedin := range relationTarget[verifyEntityRef[i]] {
 					entityRef := usedin
-					row := []string{entityNotFound, cleanNamespaceDefault(entityRef), getEntityUrlfromRef(addNamespaceDefault(entityRef))}
+					row := []string{
+						entityNotFound, 
+						cleanNamespaceDefault(entityRef), 
+						getEntityUrlfromRef(addNamespaceDefault(entityRef))
+					}
 					data = append(data, row)
 				}
 			}
@@ -186,11 +190,12 @@ var entityNotFoundCmd = &cobra.Command{
 
 func init() {
 	// Add subcommands to the check command
-	verifyCmd.AddCommand(orphanCmd)
-	verifyCmd.AddCommand(missingOwnerCmd)
-	verifyCmd.AddCommand(missingAnnotationCmd)
-	verifyCmd.AddCommand(entityNotFoundCmd)
+	checkCmd.AddCommand(orphanCmd)
+	checkCmd.AddCommand(missingOwnerCmd)
+	checkCmd.AddCommand(missingAnnotationCmd)
+	
+	checkCmd.AddCommand(entityNotFoundCmd)
 	entityNotFoundCmd.Flags().StringP("filter", "f", "", "Filter output")
 
-	rootCmd.AddCommand(verifyCmd)
+	rootCmd.AddCommand(checkCmd)
 }

@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -22,11 +23,10 @@ var orphanCmd = &cobra.Command{
 
 		var data [][]string
 		for _, entity := range entities {
-			viewUrl := getEntityUrl(entity)
-			newRow := []string{entity.Metadata.Namespace, entity.Kind, entity.Metadata.Name, viewUrl}
-			data = append(data, newRow)
+			row := []string{getEntityRef(entity), getEntityUrl(entity)}
+			data = append(data, row)
 		}
-		header := []string{"NAMESPACE", "KIND", "NAME", "URL"}
+		header := []string{"ENTITYREF", "URL"}
 		displayEntities(header, data)
 	},
 }
@@ -65,14 +65,11 @@ var missingOwnerCmd = &cobra.Command{
 		for _, entity := range entities {
 			owner, ok := entity.Spec["owner"].(string)
 			if !validOwners[owner] && ok {
-				entityRef := getEntityRef(entity)
-				// viewUrl := entity.Metadata.Annotations["backstage.io/view-url"].(string)
-				webUrl := getEntityUrl(entity)
-				newRow := []string{entity.Metadata.Namespace, entityRef, owner, entityRef, webUrl}
-				data = append(data, newRow)
+				row := []string{owner, getEntityRef(entity), getEntityUrl(entity)}
+				data = append(data, row)
 			}
 		}
-		header := []string{"NAMESPACE", "ENTITY", "OWNERNOTFOUND", "USEDIN"}
+		header := []string{"OWNERNOTFOUND", "ENTITYREF", "URL"}
 		displayEntities(header, data)
 	},
 }
@@ -82,8 +79,8 @@ var missingAnnotationCmd = &cobra.Command{
 	Use:   "missing-annotation [annotation] [kind]",
 	Short: "Annotation that is missing for a group of entities",
 	Run: func(cmd *cobra.Command, args []string) {
-		initAuth() // Initialize authentication
-		// Implement annotation check logic here
+		initAuth()
+
 		var annotation string
 
 		if len(args) == 0 {
@@ -92,12 +89,12 @@ var missingAnnotationCmd = &cobra.Command{
 			log.Fatalf("error: too many arguments provided. Please specify either one or two arguments.")
 		}
 
-		annotation = args[0] // Assign first argument to annotation
+		annotation = args[0]
 
 		kind := ""
 		filter := ""
 		if len(args) == 2 {
-			kind = args[1] // Assign second argument to kind if provided
+			kind = args[1]
 		}
 		if kind != "" {
 			if len(kind) > 0 && kind[len(kind)-1] == 's' {
@@ -109,18 +106,12 @@ var missingAnnotationCmd = &cobra.Command{
 
 		entities := fetchEntitiesByQuery(params)
 
-		validOwners := make(map[string]bool)
-		for _, entity := range entities {
-			entityRef := getEntityRef(entity)
-			validOwners[entityRef] = true
-		}
-
 		var data [][]string
 		for _, entity := range entities {
 			_, ok := entity.Metadata.Annotations[annotation].(string)
 			if !ok {
-				newRow := []string{annotation, getEntityRef(entity), getEntityUrl(entity)}
-				data = append(data, newRow)
+				row := []string{annotation, getEntityRef(entity), getEntityUrl(entity)}
+				data = append(data, row)
 			}
 		}
 		header := []string{"MISSINGANNOTATION", "ENTITYREF", "URL"}
@@ -137,32 +128,37 @@ var entityNotFoundCmd = &cobra.Command{
 		initAuth() // Initialize authentication
 
 		if len(args) == 0 {
-			log.Fatalf("error: no kind or entity ref provided. Please specify one of them")
+			log.Fatalf("error: no kind or entity ref provided. Please specify one to check them")
 		} else if len(args) > 2 {
-			log.Fatalf("error: too many arguments provided. Please specify either one or two arguments.")
+			log.Fatalf("error: too many arguments provided. Please specify either one or two arguments")
 		}
 
 		_, _, _, filter := parseArgs(args)
 
 		params := fmt.Sprintf("fields=kind,metadata.namespace,metadata.name,relations&%s", filter)
-		entities := fetchEntitiesByQuery(params) //to verify missing relations
+		entities := fetchEntitiesByQuery(params)
 
-		relationTarget := make(map[string][]string) // Map with TargetRef as key and slice of entityRefs as value
+		relationTarget := make(map[string][]string)
 		for _, entity := range entities {
-			entityRef := getEntityRef(entity) // Get the entity reference
+			entityRef := getEntityRef(entity)
 			for _, rel := range entity.Relations {
-				if rel.Type == "dependsOn" || rel.Type == "partOf" { // the relation type
-					relationTarget[rel.TargetRef] = append(relationTarget[rel.TargetRef], entityRef) // Append entityRef to the slice
+				if rel.Type == "dependsOn" || rel.Type == "partOf" {
+					relationTarget[rel.TargetRef] = append(relationTarget[rel.TargetRef], entityRef)
 				}
 			}
 		}
 		if len(relationTarget) == 0 {
-			log.Fatalf("Relations 'dependsOn' or 'partOf' for this entities don't exist")
+			log.Fatalf("Relations 'dependsOn' or 'partOf' for these entities don't exist")
 		}
+
+		f, _ := cmd.Flags().GetString("filter")
+		f = addNamespaceDefault(f)
 
 		var verifiEntityRef []string
 		for key := range relationTarget {
-			verifiEntityRef = append(verifiEntityRef, key)
+			if strings.Contains(key, f) {
+				verifiEntityRef = append(verifiEntityRef, key)
+			}
 		}
 
 		payload := Payload{
@@ -172,19 +168,26 @@ var entityNotFoundCmd = &cobra.Command{
 
 		entities = fetchEntitiesByRefs(payload)
 
+		header := []string{"ENTITYNOTFOUND", "USEDIN"}
+		targetNotFound := make(map[string][]string)
 		var data [][]string
 		for i, entity := range entities {
 			if entity.Kind == "" {
-				// fmt.Printf("Key '%s' in validRelation does not have a corresponding entityRef\n", key)
-
-				//IMPLEMENT GET LIST OF ENTITIES WHERE verifiEntityRef[i] IS USED IN
-
-				newRow := []string{verifiEntityRef[i]}
-				printYaml(relationTarget[verifiEntityRef[i]])
-				data = append(data, newRow)
+				entityNotFound := cleanNamespaceDefault(verifiEntityRef[i])
+				usedin := strings.Join(relationTarget[verifiEntityRef[i]], ", ")
+				row := []string{entityNotFound, usedin}
+				targetNotFound[entityNotFound] = relationTarget[verifiEntityRef[i]]
+				if len(targetNotFound) == 1 {
+					header = []string{"ENTITYNOTFOUND", "USEDIN", "URL"}
+					for _, entity := range relationTarget[verifiEntityRef[i]] {
+						row := []string{entityNotFound, entity, getEntityUrlfromRef(addNamespaceDefault(entity))}
+						data = append(data, row)
+					}
+				} else {
+					data = append(data, row)
+				}
 			}
 		}
-		header := []string{"ENTITYNOTFOUND"}
 		displayEntities(header, data)
 	},
 }
@@ -195,7 +198,7 @@ func init() {
 	verifyCmd.AddCommand(missingOwnerCmd)
 	verifyCmd.AddCommand(missingAnnotationCmd)
 	verifyCmd.AddCommand(entityNotFoundCmd)
+	entityNotFoundCmd.Flags().StringP("filter", "f", "", "Filter output")
 
-	// Add check command to the root command
 	rootCmd.AddCommand(verifyCmd)
 }

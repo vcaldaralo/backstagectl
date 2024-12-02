@@ -25,11 +25,43 @@ func printYaml(obj interface{}) {
 }
 
 func getEntityRef(entity Entity) string {
-	return fmt.Sprintf("%s:%s/%s", strings.ToLower(entity.Kind), entity.Metadata.Namespace, entity.Metadata.Name)
+	if entity.Metadata.Namespace == "default" {
+		return fmt.Sprintf("%s:%s", strings.ToLower(entity.Kind), entity.Metadata.Name)
+	} else {
+		return fmt.Sprintf("%s:%s/%s", strings.ToLower(entity.Kind), entity.Metadata.Namespace, entity.Metadata.Name)
+	}
+}
+
+func cleanNamespaceDefault(entityRef string) string {
+	pattern := `^([^:]+):default/([^/]+)$`
+	matches := regexp.MustCompile(pattern).FindStringSubmatch(entityRef)
+	if matches != nil {
+		return fmt.Sprintf("%s:%s", matches[1], matches[2])
+	} else {
+		return entityRef
+	}
+}
+
+func addNamespaceDefault(entityRef string) string {
+	pattern := `^([^:]+):([^/]+)$`
+	matches := regexp.MustCompile(pattern).FindStringSubmatch(entityRef)
+	if matches != nil {
+		return fmt.Sprintf("%s:default/%s", matches[1], matches[2])
+	}
+	return entityRef
 }
 
 func getEntityUrl(entity Entity) string {
 	return fmt.Sprintf("%s/catalog/%s/%s/%s", baseUrl, entity.Metadata.Namespace, strings.ToLower(entity.Kind), strings.ToLower(entity.Metadata.Name))
+}
+
+func getEntityUrlfromRef(entityRef string) string {
+	pattern := `^([^:]+):([^/]+)/([^/]+)$`
+	matches := regexp.MustCompile(pattern).FindStringSubmatch(entityRef)
+	if matches != nil {
+		return fmt.Sprintf("%s/catalog/%s/%s/%s", baseUrl, matches[2], strings.ToLower(matches[1]), strings.ToLower(matches[3]))
+	}
+	return ""
 }
 
 func getKindNamespaceName(entityRef string) (string, string, string) {

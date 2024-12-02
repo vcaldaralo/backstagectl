@@ -55,13 +55,20 @@ func parseArgs(args []string) (string, string, string, string) {
 	if len(args) > 0 {
 		arg := args[0]
 
-		pattern := `^[^:]+:[^/]+/[^/]+$`
+		pattern := `^[^:]+:.+$`
 		matched, _ := regexp.MatchString(pattern, arg)
 		if matched {
 			ref := strings.Split(arg, ":")
 			kind = ref[0]
-			namespace = strings.Split(ref[1], "/")[0]
-			name = strings.Split(ref[1], "/")[1]
+			pattern := `^[^/]+/[^/]+$`
+			matched, _ := regexp.MatchString(pattern, ref[1])
+			if matched {
+				namespace = strings.Split(ref[1], "/")[0]
+				name = strings.Split(ref[1], "/")[1]
+			} else {
+				namespace = "default"
+				name = ref[1]
+			}
 		} else {
 			kind = arg
 		}

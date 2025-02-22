@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 )
@@ -25,9 +26,18 @@ type AuthConfig struct {
 	TLSKeyPath  string `json:"tls_key_path"`
 }
 
+func getHomeDir() string {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		fmt.Println("error getting home directory:", err)
+		return ""
+	}
+	return homeDir
+}
+
 func initAuth() {
 	// Load authentication details from file
-	authConfig := loadAuthConfig("./.config.json")
+	authConfig := loadAuthConfig(filepath.Join(getHomeDir(), ".config/backstagectl/config.json"))
 	if authConfig != nil {
 		baseUrl = authConfig.BaseUrl
 		token = authConfig.Token
@@ -39,7 +49,7 @@ func initAuth() {
 	if tlsCertPath != "" && tlsKeyPath != "" {
 		cert, err := tls.LoadX509KeyPair(tlsCertPath, tlsKeyPath)
 		if err != nil {
-			fmt.Printf("Error loading TLS certificate: %v\n", err)
+			fmt.Printf("error loading TLS certificate: %v\n", err)
 			return
 		}
 
@@ -69,6 +79,13 @@ func addAuthHeader(req *http.Request) {
 }
 
 func saveAuthConfig(filename string) {
+	// Ensure the directory exists
+	dir := filepath.Dir(filename)
+	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
+		fmt.Printf("error creating directory for auth config file: %v\n", err)
+		return
+	}
+
 	authConfig := AuthConfig{
 		BaseUrl:     baseUrl,
 		Token:       token,
@@ -78,14 +95,14 @@ func saveAuthConfig(filename string) {
 
 	file, err := os.Create(filename)
 	if err != nil {
-		fmt.Printf("Error creating auth config file: %v\n", err)
+		fmt.Printf("error creating auth config file: %v\n", err)
 		return
 	}
 	defer file.Close()
 
 	encoder := json.NewEncoder(file)
 	if err := encoder.Encode(authConfig); err != nil {
-		fmt.Printf("Error saving auth config: %v\n", err)
+		fmt.Printf("error saving auth config: %v\n", err)
 	}
 }
 
@@ -96,7 +113,7 @@ func loadAuthConfig(filename string) *AuthConfig {
 			// File does not exist, return nil
 			return nil
 		}
-		fmt.Printf("Error opening auth config file: %v\n", err)
+		fmt.Printf("error opening auth config file: %v\n", err)
 		return nil
 	}
 	defer file.Close()
@@ -104,7 +121,7 @@ func loadAuthConfig(filename string) *AuthConfig {
 	var authConfig AuthConfig
 	decoder := json.NewDecoder(file)
 	if err := decoder.Decode(&authConfig); err != nil {
-		fmt.Printf("Error loading auth config: %v\n", err)
+		fmt.Printf("error loading auth config: %v\n", err)
 		return nil
 	}
 
@@ -115,15 +132,15 @@ func loadAuthConfig(filename string) *AuthConfig {
 
 	// Validate loaded values
 	if authConfig.Token == "" && (authConfig.TLSCertPath == "" || authConfig.TLSKeyPath == "") {
-		fmt.Println("Error: No valid authentication details found in ./.config.json")
+		fmt.Println("Error: No valid authentication details found in ~/.config/backstagectl/config.json")
 		return nil
 	}
 
 	return &authConfig
 }
 
-var loginCmd = &cobra.Command{
-	Use:   "login",
+var authCmd = &cobra.Command{
+	Use:   "auth",
 	Short: "Save authentication details to a file",
 	Run: func(cmd *cobra.Command, args []string) {
 		baseUrl, _ = cmd.Flags().GetString("baseUrl")
@@ -141,17 +158,17 @@ var loginCmd = &cobra.Command{
 			return
 		}
 
-		// Save the authentication details to ./.config.json
-		saveAuthConfig("./.config.json")
-		fmt.Println("Authentication details saved to ./.config.json")
+		// Save the authentication details to ~/.config/backstagectl/config.json
+		saveAuthConfig(filepath.Join(getHomeDir(), ".config/backstagectl/config.json"))
+		fmt.Println("Authentication details saved to ~/.config/backstagectl/config.json")
 	},
 }
 
 func init() {
-	loginCmd.Flags().StringP("baseUrl", "u", "", "Backstage API base URL (required)")
-	loginCmd.Flags().StringP("token", "t", "", "Authentication token")
-	loginCmd.Flags().StringP("tls-cert", "c", "", "Path to TLS certificate")
-	loginCmd.Flags().StringP("tls-key", "k", "", "Path to TLS key")
+	authCmd.Flags().StringP("baseUrl", "u", "", "Backstage API base URL (required)")
+	authCmd.Flags().StringP("token", "t", "", "Authentication token")
+	authCmd.Flags().StringP("tls-cert", "c", "", "Path to TLS certificate")
+	authCmd.Flags().StringP("tls-key", "k", "", "Path to TLS key")
 	rootCmd.MarkPersistentFlagRequired("url")
-	rootCmd.AddCommand(loginCmd) // Add the new command to the root command
+	rootCmd.AddCommand(authCmd) // Add the new command to the root command
 }

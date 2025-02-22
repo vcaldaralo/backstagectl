@@ -114,7 +114,7 @@ func parseArgs(args []string) string {
 			kinds = strings.Split(arg, ",")
 		}
 
-		allowedKinds := []string{"resource", "component", "system", "domain", "user", "group", "location"}
+		allowedKinds := []string{"*", "resource", "component", "system", "domain", "user", "group", "location"}
 
 		for i := range kinds {
 			if len(kinds[i]) > 0 && kinds[i][len(kinds[i])-1] == 's' {
@@ -138,7 +138,10 @@ func parseArgs(args []string) string {
 	}
 
 	for i := range kinds {
-		if kinds[i] != "" {
+		if kinds[i] == "*" {
+			filter = ""
+			break
+		} else if kinds[i] != "" {
 			if filter != "" {
 				filter += fmt.Sprintf(",kind=%s", kinds[i])
 			} else {

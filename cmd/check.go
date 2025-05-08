@@ -34,22 +34,22 @@ var orphanCmd = &cobra.Command{
 			data = append(data, row)
 		}
 		header := []string{"NAMESPACE", "KIND", "NAME", "URL"}
-		displayEntities(header, data)
+		tableTabOutput(header, data)
 	},
 }
 
 var missingAnnotationCmd = &cobra.Command{
-	Use:   "missing-annotation [kind|entityRef] [annotation]",
+	Use:   "missingannotation [kind|entityRef] [annotation]",
 	Short: "Annotation that is missing for a group of entities",
 	Run: func(cmd *cobra.Command, args []string) {
 		initAuth()
 
 		var annotation string
 
-		if len(args) == 0 {
-			log.Fatalf("Error: no annotation key provided. Please specify an annotation key.")
+		if len(args) < 2 {
+			log.Fatalf("Error: insufficient arguments. First argument must be 'kind' or 'entityRef', and second argument must be the annotation key.")
 		} else if len(args) > 2 {
-			log.Fatalf("Error: too many arguments provided. Please specify either one or two arguments.")
+			log.Fatalf("Error: too many arguments provided. Please specify exactly two arguments: 'kind' or 'entityRef' and the annotation key.")
 		}
 
 		filter := parseArgs(args[:len(args)-1])
@@ -77,20 +77,19 @@ var missingAnnotationCmd = &cobra.Command{
 			}
 		}
 		header := []string{"NAMESPACE", "KIND", "NAME", "MISSINGANNOTATION", "URL"}
-		displayEntities(header, data)
-
+		tableTabOutput(header, data)
 	},
 }
 
 // Subcommand for checking relations
 var entityNotFoundCmd = &cobra.Command{
-	Use:   "not-found [kind|entityRef] [name]",
+	Use:   "notfound [kind|entityRef] [name]",
 	Short: "Relations that don't exist for an entity",
 	Run: func(cmd *cobra.Command, args []string) {
 		initAuth() // Initialize authentication
 
 		if len(args) == 0 {
-			log.Fatalf("Error: no kind or entityRef provided. Please specify one to check them")
+			log.Fatalf("Error: no kind ([component|system|domain|group|user|location]) or entityRef ({kind}:{namespace}/{entity}) provided. Please specify one to check them")
 		} else if len(args) > 2 {
 			log.Fatalf("Error: too many arguments provided. Please specify either one or two arguments")
 		}
@@ -151,7 +150,7 @@ var entityNotFoundCmd = &cobra.Command{
 			}
 		}
 		header := []string{"NAMESPACE", "KIND", "NAME", "ENTITYNOTFOUND", "URL"}
-		displayEntities(header, data)
+		tableTabOutput(header, data)
 	},
 }
 

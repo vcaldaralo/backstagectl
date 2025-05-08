@@ -281,30 +281,33 @@ func fetchEntitiesByQuery(queryParameters string) []Entity {
 	return entities
 }
 
-func displayEntities(header []string, data [][]string) {
+func tableTabOutput(header []string, data [][]string) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
 	defer w.Flush()
 
 	isNamespaceDefaultOnly := true
 	for _, row := range data {
-		if row[0] != "default" {
+		if len(row) > 0 && row[0] != "default" {
 			isNamespaceDefaultOnly = false
 			break
 		}
 	}
 
 	sort.Slice(data, func(i, j int) bool {
-		return data[i][0] < data[j][0]
+		return strings.Join(data[i], "\t") < strings.Join(data[j], "\t")
 	})
+
 	if isNamespaceDefaultOnly && len(data) > 0 {
-		fmt.Fprintln(w, strings.Join(header[1:], "\t\t\t"))
+		fmt.Fprintln(w, strings.Join(header[1:], "\t"))
 		for _, row := range data {
-			fmt.Fprintln(w, strings.Join(row[1:], "\t\t\t"))
+			if len(row) > 1 {
+				fmt.Fprintln(w, strings.Join(row[1:], "\t"))
+			}
 		}
 	} else {
-		fmt.Fprintln(w, strings.Join(header, "\t\t\t"))
+		fmt.Fprintln(w, strings.Join(header, "\t"))
 		for _, row := range data {
-			fmt.Fprintln(w, strings.Join(row, "\t\t\t"))
+			fmt.Fprintln(w, strings.Join(row, "\t"))
 		}
 	}
 }

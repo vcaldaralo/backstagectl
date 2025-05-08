@@ -24,17 +24,18 @@ var orphanCmd = &cobra.Command{
 		var data [][]string
 		for _, entity := range entities {
 			entityRef := getEntityRef(entity)
-			kind, namespace, name := getKindNamespaceName(entityRef)
+			_, namespace, name := getKindNamespaceName(entityRef)
 			row := []string{
 				namespace,
-				kind,
 				name,
 				getEntityUrl(entity),
 			}
 			data = append(data, row)
 		}
-		header := []string{"NAMESPACE", "KIND", "NAME", "URL"}
-		tableTabOutput(header, data)
+
+		outputFormat, _ := cmd.Flags().GetString("output")
+		header := []string{"NAMESPACE", "NAME", "URL"}
+		formatOutput(header, data, outputFormat)
 	},
 }
 
@@ -65,10 +66,9 @@ var missingAnnotationCmd = &cobra.Command{
 			_, ok := entity.Metadata.Annotations[annotation].(string)
 			if !ok {
 				entityRef := getEntityRef(entity)
-				kind, namespace, name := getKindNamespaceName(entityRef)
+				_, namespace, name := getKindNamespaceName(entityRef)
 				row := []string{
 					namespace,
-					kind,
 					name,
 					annotation,
 					getEntityUrl(entity),
@@ -76,12 +76,13 @@ var missingAnnotationCmd = &cobra.Command{
 				data = append(data, row)
 			}
 		}
-		header := []string{"NAMESPACE", "KIND", "NAME", "MISSINGANNOTATION", "URL"}
-		tableTabOutput(header, data)
+
+		outputFormat, _ := cmd.Flags().GetString("output")
+		header := []string{"NAMESPACE", "NAME", "MISSINGANNOTATION", "URL"}
+		formatOutput(header, data, outputFormat)
 	},
 }
 
-// Subcommand for checking relations
 var entityNotFoundCmd = &cobra.Command{
 	Use:   "notfound [kind|entityRef] [name]",
 	Short: "Relations that don't exist for an entity",
@@ -137,20 +138,21 @@ var entityNotFoundCmd = &cobra.Command{
 				entityNotFound := cleanNamespaceDefault(verifyEntityRef[i])
 				for _, usedin := range relationTarget[verifyEntityRef[i]] {
 					entityRef := usedin
-					kind, namespace, name := getKindNamespaceName(entityRef)
+					_, namespace, name := getKindNamespaceName(entityRef)
 					row := []string{
 						namespace,
-						kind,
 						name,
 						entityNotFound,
-						getEntityUrlfromRef(addNamespaceDefault(entityRef)),
+						getEntityUrlFromRef(addNamespaceDefault(entityRef)),
 					}
 					data = append(data, row)
 				}
 			}
 		}
-		header := []string{"NAMESPACE", "KIND", "NAME", "ENTITYNOTFOUND", "URL"}
-		tableTabOutput(header, data)
+
+		outputFormat, _ := cmd.Flags().GetString("output")
+		header := []string{"NAMESPACE", "NAME", "ENTITYNOTFOUND", "URL"}
+		formatOutput(header, data, outputFormat)
 	},
 }
 
@@ -158,6 +160,10 @@ func init() {
 	checkCmd.AddCommand(orphanCmd)
 	checkCmd.AddCommand(missingAnnotationCmd)
 	checkCmd.AddCommand(entityNotFoundCmd)
+
+	orphanCmd.Flags().StringP("output", "o", "table", "Output format [table|json]")
+	missingAnnotationCmd.Flags().StringP("output", "o", "table", "Output format [table|json]")
+	entityNotFoundCmd.Flags().StringP("output", "o", "table", "Output format [table|json]")
 	entityNotFoundCmd.Flags().StringP("filter", "f", "", "Filter output on ENTITYNOTFOUND")
 
 	rootCmd.AddCommand(checkCmd)

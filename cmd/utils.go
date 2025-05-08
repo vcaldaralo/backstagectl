@@ -37,7 +37,7 @@ func getEntityUrl(entity Entity) string {
 	return fmt.Sprintf("%s/catalog/%s/%s/%s", baseUrl, entity.Metadata.Namespace, strings.ToLower(entity.Kind), strings.ToLower(entity.Metadata.Name))
 }
 
-func getEntityUrlfromRef(entityRef string) string {
+func getEntityUrlFromRef(entityRef string) string {
 	pattern := `^([^:]+):([^/]+)/([^/]+)$`
 	matches := regexp.MustCompile(pattern).FindStringSubmatch(entityRef)
 	if matches != nil {
@@ -281,7 +281,27 @@ func fetchEntitiesByQuery(queryParameters string) []Entity {
 	return entities
 }
 
-func tableTabOutput(header []string, data [][]string) {
+func formatOutput(header []string, data [][]string, outputFormat string) {
+	if outputFormat == "json" {
+		output := make([]map[string]string, len(data))
+		for i, row := range data {
+			entry := make(map[string]string)
+			for j, col := range header {
+				if j < len(row) {
+					entry[strings.ToLower(col)] = row[j]
+				}
+			}
+			output[i] = entry
+		}
+		jsonData, err := json.MarshalIndent(output, "", "  ")
+		if err != nil {
+			fmt.Printf("error marshalling to JSON: %v\n", err)
+			return
+		}
+		fmt.Println(string(jsonData))
+		return
+	}
+
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
 	defer w.Flush()
 

@@ -23,12 +23,12 @@ var orphanCmd = &cobra.Command{
 
 		var data [][]string
 		for _, entity := range entities {
-			entityRef := getEntityRef(entity)
+			entityRef := getRefFromEntity(entity)
 			_, namespace, name := getKindNamespaceName(entityRef)
 			row := []string{
 				namespace,
 				name,
-				getEntityUrl(entity),
+				getUrlFromEntity(entity),
 			}
 			data = append(data, row)
 		}
@@ -65,13 +65,13 @@ var missingAnnotationCmd = &cobra.Command{
 		for _, entity := range entities {
 			_, ok := entity.Metadata.Annotations[annotation].(string)
 			if !ok {
-				entityRef := getEntityRef(entity)
+				entityRef := getRefFromEntity(entity)
 				_, namespace, name := getKindNamespaceName(entityRef)
 				row := []string{
 					namespace,
 					name,
 					annotation,
-					getEntityUrl(entity),
+					getUrlFromEntity(entity),
 				}
 				data = append(data, row)
 			}
@@ -102,7 +102,7 @@ var entityNotFoundCmd = &cobra.Command{
 
 		relationTarget := make(map[string][]string)
 		for _, entity := range entities {
-			entityRef := getEntityRef(entity)
+			entityRef := getRefFromEntity(entity)
 			for _, rel := range entity.Relations {
 				if rel.Type == "dependsOn" || rel.Type == "partOf" || rel.Type == "ownedBy" {
 					relationTarget[rel.TargetRef] = append(relationTarget[rel.TargetRef], entityRef)
@@ -143,7 +143,7 @@ var entityNotFoundCmd = &cobra.Command{
 						namespace,
 						name,
 						entityNotFound,
-						getEntityUrlFromRef(addNamespaceDefault(entityRef)),
+						getUrlFromRef(addNamespaceDefault(entityRef)),
 					}
 					data = append(data, row)
 				}

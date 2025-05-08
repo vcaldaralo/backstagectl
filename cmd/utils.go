@@ -25,7 +25,7 @@ func printYaml(obj interface{}) {
 	fmt.Print(string(marshaledYAML))
 }
 
-func getEntityRef(entity Entity) string {
+func getRefFromEntity(entity Entity) string {
 	if entity.Metadata.Namespace == "default" {
 		return fmt.Sprintf("%s:%s", strings.ToLower(entity.Kind), entity.Metadata.Name)
 	} else {
@@ -33,11 +33,11 @@ func getEntityRef(entity Entity) string {
 	}
 }
 
-func getEntityUrl(entity Entity) string {
+func getUrlFromEntity(entity Entity) string {
 	return fmt.Sprintf("%s/catalog/%s/%s/%s", baseUrl, entity.Metadata.Namespace, strings.ToLower(entity.Kind), strings.ToLower(entity.Metadata.Name))
 }
 
-func getEntityUrlFromRef(entityRef string) string {
+func getUrlFromRef(entityRef string) string {
 	pattern := `^([^:]+):([^/]+)/([^/]+)$`
 	matches := regexp.MustCompile(pattern).FindStringSubmatch(entityRef)
 	if matches != nil {

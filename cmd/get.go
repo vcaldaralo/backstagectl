@@ -33,8 +33,8 @@ var getCmd = &cobra.Command{
 
 		if len(entities) == 1 {
 			entity := entities[0]
-			entities[0].Metadata.Annotations["backstage.io/web-url"] = getEntityUrl(entity)
-			entities[0].Metadata.Annotations["backstage.io/entity-ref"] = getEntityRef(entity)
+			entities[0].Metadata.Annotations["backstage.io/web-url"] = getUrlFromEntity(entity)
+			entities[0].Metadata.Annotations["backstage.io/entity-ref"] = getRefFromEntity(entity)
 			marshaledYAML, err := yaml.Marshal(entities[0])
 			if err != nil {
 				fmt.Println("error marshalling YAML:", err)
@@ -44,12 +44,12 @@ var getCmd = &cobra.Command{
 		} else {
 			var data [][]string
 			for _, entity := range entities {
-				entityRef := getEntityRef(entity)
+				entityRef := getRefFromEntity(entity)
 				_, namespace, name := getKindNamespaceName(entityRef)
 				newRow := []string{
 					namespace,
 					name,
-					getEntityUrl(entity),
+					getUrlFromEntity(entity),
 				}
 				data = append(data, newRow)
 			}

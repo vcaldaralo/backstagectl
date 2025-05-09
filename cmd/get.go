@@ -16,7 +16,7 @@ var getCmd = &cobra.Command{
 		annotation, _ := cmd.Flags().GetString("annotation")
 
 		if len(args) == 0 {
-			log.Fatalf("Error: no kind or entityRef provided. Please specify one to check them")
+			log.Fatalf("Error: no kind ([component|system|domain|group|user|location]) or entityRef ({kind}:{namespace}/{entity}) provided. Please specify one to check them")
 		}
 
 		filter := parseArgs(args)
@@ -33,8 +33,8 @@ var getCmd = &cobra.Command{
 
 		if len(entities) == 1 {
 			entity := entities[0]
-			entities[0].Metadata.Annotations["backstage.io/web-url"] = getEntityUrl(entity)
-			entities[0].Metadata.Annotations["backstage.io/entity-ref"] = getEntityRef(entity)
+			entities[0].Metadata.Annotations["backstage.io/web-url"] = getUrlFromEntity(entity)
+			entities[0].Metadata.Annotations["backstage.io/entity-ref"] = getRefFromEntity(entity)
 			marshaledYAML, err := yaml.Marshal(entities[0])
 			if err != nil {
 				fmt.Println("error marshalling YAML:", err)
@@ -44,23 +44,25 @@ var getCmd = &cobra.Command{
 		} else {
 			var data [][]string
 			for _, entity := range entities {
-				entityRef := getEntityRef(entity)
-				kind, namespace, name := getKindNamespaceName(entityRef)
+				entityRef := getRefFromEntity(entity)
+				_, namespace, name := getKindNamespaceName(entityRef)
 				newRow := []string{
 					namespace,
-					kind,
 					name,
-					getEntityUrl(entity),
+					getUrlFromEntity(entity),
 				}
 				data = append(data, newRow)
 			}
-			header := []string{"NAMESPACE", "KIND", "NAME", "URL"}
-			displayEntities(header, data)
+
+			outputFormat, _ := cmd.Flags().GetString("output")
+			header := []string{"NAMESPACE", "NAME", "URL"}
+			formatOutput(header, data, outputFormat)
 		}
 	},
 }
 
 func init() {
 	getCmd.Flags().StringP("annotation", "a", "", "Filter entities by annotation key")
+	getCmd.Flags().StringP("output", "o", "table", "Output format [table|json]")
 	rootCmd.AddCommand(getCmd)
 }

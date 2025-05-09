@@ -25,7 +25,7 @@ func printYaml(obj interface{}) {
 	fmt.Print(string(marshaledYAML))
 }
 
-func getEntityRef(entity Entity) string {
+func getRefFromEntity(entity Entity) string {
 	if entity.Metadata.Namespace == "default" {
 		return fmt.Sprintf("%s:%s", strings.ToLower(entity.Kind), entity.Metadata.Name)
 	} else {
@@ -33,11 +33,11 @@ func getEntityRef(entity Entity) string {
 	}
 }
 
-func getEntityUrl(entity Entity) string {
+func getUrlFromEntity(entity Entity) string {
 	return fmt.Sprintf("%s/catalog/%s/%s/%s", baseUrl, entity.Metadata.Namespace, strings.ToLower(entity.Kind), strings.ToLower(entity.Metadata.Name))
 }
 
-func getEntityUrlfromRef(entityRef string) string {
+func getUrlFromRef(entityRef string) string {
 	pattern := `^([^:]+):([^/]+)/([^/]+)$`
 	matches := regexp.MustCompile(pattern).FindStringSubmatch(entityRef)
 	if matches != nil {
@@ -281,30 +281,53 @@ func fetchEntitiesByQuery(queryParameters string) []Entity {
 	return entities
 }
 
-func displayEntities(header []string, data [][]string) {
+func formatOutput(header []string, data [][]string, outputFormat string) {
+	if outputFormat == "json" {
+		output := make([]map[string]string, len(data))
+		for i, row := range data {
+			entry := make(map[string]string)
+			for j, col := range header {
+				if j < len(row) {
+					entry[strings.ToLower(col)] = row[j]
+				}
+			}
+			output[i] = entry
+		}
+		jsonData, err := json.MarshalIndent(output, "", "  ")
+		if err != nil {
+			fmt.Printf("error marshalling to JSON: %v\n", err)
+			return
+		}
+		fmt.Println(string(jsonData))
+		return
+	}
+
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
 	defer w.Flush()
 
 	isNamespaceDefaultOnly := true
 	for _, row := range data {
-		if row[0] != "default" {
+		if len(row) > 0 && row[0] != "default" {
 			isNamespaceDefaultOnly = false
 			break
 		}
 	}
 
 	sort.Slice(data, func(i, j int) bool {
-		return data[i][0] < data[j][0]
+		return strings.Join(data[i], "\t") < strings.Join(data[j], "\t")
 	})
+
 	if isNamespaceDefaultOnly && len(data) > 0 {
-		fmt.Fprintln(w, strings.Join(header[1:], "\t\t\t"))
+		fmt.Fprintln(w, strings.Join(header[1:], "\t"))
 		for _, row := range data {
-			fmt.Fprintln(w, strings.Join(row[1:], "\t\t\t"))
+			if len(row) > 1 {
+				fmt.Fprintln(w, strings.Join(row[1:], "\t"))
+			}
 		}
 	} else {
-		fmt.Fprintln(w, strings.Join(header, "\t\t\t"))
+		fmt.Fprintln(w, strings.Join(header, "\t"))
 		for _, row := range data {
-			fmt.Fprintln(w, strings.Join(row, "\t\t\t"))
+			fmt.Fprintln(w, strings.Join(row, "\t"))
 		}
 	}
 }

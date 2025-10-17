@@ -57,13 +57,13 @@ var missingAnnotationCmd = &cobra.Command{
 
 		annotation = args[1]
 
-		params := fmt.Sprintf("fields=kind,metadata.namespace,metadata.name,metadata.annotation&%s", filter)
+		params := fmt.Sprintf("fields=kind,metadata.namespace,metadata.name,metadata.annotations&%s", filter)
 
 		entities := fetchEntitiesByQuery(params)
 
 		var data [][]string
 		for _, entity := range entities {
-			_, ok := entity.Metadata.Annotations[annotation].(string)
+			_, ok := entity.Metadata.Annotations[annotation]
 			if !ok {
 				entityRef := getRefFromEntity(entity)
 				_, namespace, name := getKindNamespaceName(entityRef)
